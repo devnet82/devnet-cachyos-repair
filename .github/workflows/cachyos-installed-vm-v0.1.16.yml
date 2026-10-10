@@ -1,0 +1,143 @@
+name: Devnet Installed CachyOS BTRFS GRUB Recovery QA v0.1.16
+on:
+  push:
+    branches:
+      - qa/cachyos-installed-btrfs-grub-v0.1.16
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  installed-cachyos-recovery:
+    name: Disposable installed CachyOS GRUB BTRFS reboot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      QA_RELEASE_TAG: cachyos-repair-qa-assets-v0.1.19
+      QA_CANDIDATE_HASH: 0474dcb99d1b9967b4c2b168727e5d2421105c150ac8b54eb5d4237b7b897c17
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout QA-only branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate safety guards and QA report gate
+        run: |
+          set -euo pipefail
+          bash -n qa/installed-v0.1.16/install-guest.sh qa/installed-v0.1.16/installed-boot-qa.sh
+          python3 -m py_compile qa/installed-v0.1.16/qemu_control.py qa/installed-v0.1.16/check_install_qa.py
+          (cd qa/installed-v0.1.16 && python3 -m unittest -v test_installed_gate.py)
+          grep -F "DEVNETQAONLY" qa/installed-v0.1.16/install-guest.sh
+      - name: Install isolated QEMU tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-system-x86 qemu-utils mtools dosfstools
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+          mkdir -p /tmp/devnet-qa evidence
+          echo 'KVM_PRESENT' > evidence/runner-kvm.txt
+      - name: Download authentic CachyOS ISO and exact v0.1.20 app
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://iso.cachyos.org/desktop/260809'
+          name='cachyos-desktop-linux-260809.iso'
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 15 --max-time 1200 "$base/$name.sha256" -o "/tmp/devnet-qa/$name.sha256"
+          curl --fail --location --retry 3 --retry-all-errors --connect-timeout 15 --max-time 1200 "$base/$name" -o "/tmp/devnet-qa/$name"
+          (cd /tmp/devnet-qa && sha256sum -c "$name.sha256") | tee evidence/iso-sha256.txt
+          gh release download "$QA_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'devnet-cachyos-repair-v0.1.19.zip' --dir /tmp/devnet-qa
+          basezip=/tmp/devnet-qa/devnet-cachyos-repair-v0.1.19.zip
+          echo "435bc2a88a99eef4cd5e85d71d50ca36e3d3f40361efe53db85e57e2d20fea0c  $basezip" | sha256sum -c -
+          python3 qa/cachyos-app-v0.1.15/build_candidate_v0.1.20.py "$basezip" /tmp/devnet-qa/candidate.zip
+          echo "$QA_CANDIDATE_HASH  /tmp/devnet-qa/candidate.zip" | sha256sum -c - | tee evidence/app-sha256.txt
+      - name: Allocate and verify disposable virtual disks
+        shell: bash
+        run: |
+          set -euo pipefail
+          qemu-img create -f qcow2 /tmp/devnet-qa/only-qa-system.qcow2 12G
+          truncate -s 128M /tmp/devnet-qa/only-qa-control.img
+          mkfs.vfat -F 32 -n DEVNETCONTROL /tmp/devnet-qa/only-qa-control.img
+          image=/tmp/devnet-qa/only-qa-control.img
+          mcopy -i "$image" qa/installed-v0.1.16/install-guest.sh ::/install-guest.sh
+          mcopy -i "$image" qa/installed-v0.1.16/installed-boot-qa.sh ::/installed-boot-qa.sh
+          mcopy -i "$image" /tmp/devnet-qa/candidate.zip ::/candidate.zip
+          mdir -i "$image" ::/ | tee evidence/control-disk-list.txt
+          qemu-img info /tmp/devnet-qa/only-qa-system.qcow2 | tee evidence/system-disk-info.txt
+      - name: Start real CachyOS live ISO and install native GRUB BTRFS system
+        shell: bash
+        run: |
+          set -euo pipefail
+          qemu-system-x86_64 -machine q35,accel=kvm -cpu host -m 6144 -smp 4 \
+            -drive file=/tmp/devnet-qa/cachyos-desktop-linux-260809.iso,media=cdrom,if=ide \
+            -drive if=none,id=control,file=/tmp/devnet-qa/only-qa-control.img,format=raw \
+            -device virtio-blk-pci,drive=control,serial=DEVNETCONTROL \
+            -drive if=none,id=system,file=/tmp/devnet-qa/only-qa-system.qcow2,format=qcow2 \
+            -device virtio-blk-pci,drive=system,serial=DEVNETQAONLY,bootindex=1 \
+            -netdev user,id=qa-net -device virtio-net-pci,netdev=qa-net \
+            -boot order=d -vga std -display none -serial file:evidence/live-serial.log \
+            -monitor unix:/tmp/devnet-qa-live.sock,server=on,wait=off \
+            -daemonize -pidfile /tmp/devnet-qa-live.pid
+          sleep 125
+          python3 qa/installed-v0.1.16/qemu_control.py /tmp/devnet-qa-live.sock framebuffer --image evidence/live-before-install.ppm
+          python3 qa/installed-v0.1.16/qemu_control.py /tmp/devnet-qa-live.sock begin-install
+          image=/tmp/devnet-qa/only-qa-control.img
+          for attempt in $(seq 1 150); do
+            mcopy -o -i "$image" ::/install.log evidence/install.log >/dev/null 2>&1 || true
+            if mcopy -o -i "$image" ::/install-ready.txt evidence/install-ready.txt >/dev/null 2>&1; then
+              echo 'INSTALLED_IMAGE_PREPARATION_REPORTED' && break
+            fi
+            if grep -q '^INSTALL_SCRIPT_EXIT=[1-9]' evidence/install.log 2>/dev/null; then
+              echo 'INSTALL_SCRIPT_FAILED_EARLY'
+              break
+            fi
+            sleep 7
+          done
+          mcopy -o -i "$image" ::/install.log evidence/install.log || true
+          mcopy -o -i "$image" ::/install-ready.txt evidence/install-ready.txt || true
+          mcopy -o -i "$image" ::/target-btrfs-uuid.txt evidence/target-btrfs-uuid.txt || true
+          grep -F 'INSTALLED_BTRFS_GRUB_PREPARED' evidence/install-ready.txt
+          grep -F 'INSTALL_SCRIPT_EXIT=0' evidence/install.log
+      - name: Reboot from installed BTRFS GRUB disk and verify actual rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -s /tmp/devnet-qa-live.pid ]; then kill "$(cat /tmp/devnet-qa-live.pid)" || true; fi
+          sleep 4
+          qemu-system-x86_64 -machine q35,accel=kvm -cpu host -m 4096 -smp 4 \
+            -drive if=none,id=control,file=/tmp/devnet-qa/only-qa-control.img,format=raw \
+            -device virtio-blk-pci,drive=control,serial=DEVNETCONTROL \
+            -drive if=none,id=system,file=/tmp/devnet-qa/only-qa-system.qcow2,format=qcow2 \
+            -device virtio-blk-pci,drive=system,serial=DEVNETQAONLY,bootindex=1 \
+            -netdev user,id=qa-net -device virtio-net-pci,netdev=qa-net \
+            -boot order=c -vga std -display none -serial file:evidence/installed-serial.log \
+            -monitor unix:/tmp/devnet-qa-installed.sock,server=on,wait=off \
+            -daemonize -pidfile /tmp/devnet-qa-installed.pid
+          image=/tmp/devnet-qa/only-qa-control.img
+          for attempt in $(seq 1 75); do
+            mcopy -o -i "$image" ::/installed-boot.log evidence/installed-boot.log >/dev/null 2>&1 || true
+            for n in installed-first-pass restore-grub-prepared installed-restored-pass; do
+              mcopy -o -i "$image" ::/$n.txt evidence/$n.txt >/dev/null 2>&1 || true
+            done
+            if grep -q 'INSTALLED_GRUB_BTRFS_REBOOT_ROLLBACK_PASS' evidence/installed-restored-pass.txt 2>/dev/null; then
+              echo 'INSTALLED_RESTORED_ROOT_BOOTED' && break
+            fi
+            sleep 8
+          done
+          python3 qa/installed-v0.1.16/qemu_control.py /tmp/devnet-qa-installed.sock framebuffer --image evidence/installed-after-reboot.ppm
+          grep -F 'INSTALLED_GRUB_BTRFS_FIRST_BOOT_PASS' evidence/installed-first-pass.txt
+          grep -F 'INSTALLED_GRUB_BTRFS_REBOOT_ROLLBACK_PASS' evidence/installed-restored-pass.txt
+      - name: Preserve unfiltered installed-system evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cachyos-installed-grub-btrfs-qa-v0.1.16
+          path: evidence/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Enforce exact installed-guest checks
+        if: always()
+        shell: bash
+        run: |
+          python3 qa/installed-v0.1.16/check_install_qa.py evidence
