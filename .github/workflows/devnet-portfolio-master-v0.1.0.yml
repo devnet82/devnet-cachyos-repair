@@ -1,0 +1,105 @@
+name: Devnet Portfolio Master QA v0.1.0
+
+on:
+  push:
+    branches:
+      - qa/devnet-portfolio-master-v0.1.0
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  app-static-audit:
+    name: Audit ${{ matrix.app }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - devnet-cachyos-repair
+          - devnet-rgb-control
+          - devnet-wayvr-watch-manager
+          - vr-stack-control
+          - devnet-chatbox
+          - devnet-proton-rtsp
+          - wivrn-stack-control
+    steps:
+      - name: Checkout portfolio QA only
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run isolated archive/syntax/package audit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qa/portfolio-v0.1.0/portfolio_qa.py
+          python3 qa/portfolio-v0.1.0/portfolio_qa.py "${{ matrix.app }}" evidence
+      - name: Preserve exact-build audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-v0.1.0-${{ matrix.app }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+  all-apps-review:
+    name: Consolidate and enforce real 100 percent QA gate
+    needs: [app-static-audit]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download package evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: portfolio-v0.1.0-*
+          merge-multiple: true
+          path: evidence
+      - name: Generate auditable summary
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, os
+          names = ['devnet-cachyos-repair','devnet-rgb-control','devnet-wayvr-watch-manager',
+                   'vr-stack-control','devnet-chatbox','devnet-proton-rtsp','wivrn-stack-control']
+          lines = ['# Devnet Portfolio Master QA v0.1.0','',
+                   'This is an independent source/package CI audit, not a full hardware or installed-CachyOS VM sign-off.','',
+                   '| Application | Source/package gate | Tested source commit | 100% Master QA |',
+                   '|---|---|---|---|']
+          found=0
+          for app in names:
+              p=Path('evidence')/(app+'.json')
+              if p.is_file():
+                  d=json.loads(p.read_text());found+=1
+                  gate=d['source_package_gate']
+                  sha=(d.get('source_revision') or 'unavailable')[:12]
+              else:
+                  gate='NOT_TESTED (report missing)';sha='unavailable'
+              lines.append(f'| {app} | {gate} | {sha} | BLOCKED |')
+          lines+=['','Latest Library ZIP builds and physical hardware acceptance are NOT TESTED by this workflow.',
+                  'A newer ZIP never inherits the status of an older public release.','',
+                  'Required follow-up: run exact-build CachyOS VM and real-device tests where supported.','']
+          Path('portfolio-summary.md').write_text('\n'.join(lines))
+          print('\n'.join(lines))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write('\n'.join(lines)+'\n')
+          if found != len(names): raise SystemExit('BLOCKED: one or more app reports are missing')
+          PY
+      - name: Upload consolidated report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-portfolio-v0.1.0-summary
+          path: |
+            evidence/
+            portfolio-summary.md
+          retention-days: 14
+      - name: Enforce no false full-release approval
+        if: always()
+        run: |
+          echo 'BLOCKED: portfolio package checks do not certify all application versions, CachyOS VM, live VR/Sonic Pad/RGB hardware and rollback scenarios'
+          exit 1
