@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+import hashlib,json,os,socket,stat,tempfile,unittest,zipfile
+from pathlib import Path
+import guest_app_qa as app
+
+class VMGuestHarnessRegression(unittest.TestCase):
+    def setUp(self):
+        self.t=tempfile.TemporaryDirectory()
+        self.addCleanup(self.t.cleanup)
+        self.p=Path(self.t.name)/'app.zip'
+        self.good={'test_scope':'pyside6 desktop acceptance','checks_passed':[f'check_{i:02}' for i in range(33)]}
+    def output(self, obj=None):
+        return 'Qt diagnostics\n'+json.dumps(self.good if obj is None else obj)+'\n'
+    def test_desktop_success(self):
+        self.assertEqual(app.classify_desktop(0,self.output()),app.PASS)
+    def test_failed_exit(self):
+        self.assertEqual(app.classify_desktop(2,self.output()),app.FAIL)
+    def test_traceback(self):
+        self.assertEqual(app.classify_desktop(0,'Traceback (most recent call last):\n'+self.output()),app.FAIL)
+    def test_missing_json(self):
+        self.assertEqual(app.classify_desktop(0,'OK\n'),app.NOT_TESTED)
+    def test_skipped_count(self):
+        d={**self.good,'checks_passed':['a']*32}
+        self.assertEqual(app.classify_desktop(0,self.output(d)),app.FAIL)
+    def test_duplicates(self):
+        d={**self.good,'checks_passed':['one']*33}
+        self.assertEqual(app.classify_desktop(0,self.output(d)),app.FAIL)
+    def test_errors(self):
+        d={**self.good,'checks_failed':['bad']}
+        self.assertEqual(app.classify_desktop(0,self.output(d)),app.FAIL)
+    def test_wrong_scope(self):
+        d={**self.good,'test_scope':'generic'}
+        self.assertEqual(app.classify_desktop(0,self.output(d)),app.NOT_TESTED)
+    def mkzip(self,name='foo.py',data=b'foo'):
+        with zipfile.ZipFile(self.p,'w') as z:z.writestr(name,data)
+        return hashlib.sha256(self.p.read_bytes()).hexdigest()
+    def test_dependency_clean_install(self):
+        self.assertEqual(app.dependency_status(0,0),app.PASS)
+    def test_dependency_interrupted_exit_minus9(self):
+        self.assertEqual(app.dependency_status(-9,0),app.NOT_TESTED)
+    def test_dependency_failed_import(self):
+        self.assertEqual(app.dependency_status(0,1),app.NOT_TESTED)
+    def test_good_zip(self):
+        sha=self.mkzip()
+        self.assertEqual(app.validate_zip(self.p,sha),1)
+    def test_wrong_hash(self):
+        self.mkzip()
+        with self.assertRaises(ValueError):app.validate_zip(self.p,'0'*64)
+    def test_zip_traversal(self):
+        sha=self.mkzip('../evil')
+        with self.assertRaises(ValueError):app.validate_zip(self.p,sha)
+    def test_zip_symlink(self):
+        with zipfile.ZipFile(self.p,'w') as z:
+            info=zipfile.ZipInfo('symlink');info.create_system=3
+            info.external_attr=(stat.S_IFLNK|0o777)<<16
+            z.writestr(info,'target')
+        with self.assertRaises(ValueError):app.validate_zip(self.p,hashlib.sha256(self.p.read_bytes()).hexdigest())
+    def test_zip_duplicates(self):
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore',UserWarning)
+            with zipfile.ZipFile(self.p,'w') as z:
+                z.writestr('a','one');z.writestr('a','two')
+        with self.assertRaises(ValueError):app.validate_zip(self.p,hashlib.sha256(self.p.read_bytes()).hexdigest())
+    def test_missing_archive(self):
+        with self.assertRaises(FileNotFoundError):app.validate_zip(self.p,app.APP_SHA256)
+    def test_diagnostic_good_secure_json(self):
+        p=Path(self.t.name)/'diagnostic.json'
+        p.write_text('{"preupdate":{"summary":{"UNKNOWN":1}}}')
+        p.chmod(0o600)
+        self.assertTrue(app.diagnostic_report_ok(1,'Unknown warnings',p,'preupdate'))
+        self.assertTrue(app.diagnostic_report_ok(2,'Blocked pending repair',p,'preupdate'))
+    def test_diagnostic_missing_or_world_readable_rejected(self):
+        p=Path(self.t.name)/'bad.json'
+        self.assertFalse(app.diagnostic_report_ok(0,'OK',p,'preupdate'))
+        p.write_text('{"preupdate":{}}')
+        p.chmod(0o644)
+        self.assertFalse(app.diagnostic_report_ok(0,'OK',p,'preupdate'))
+        p.chmod(0o600)
+        self.assertFalse(app.diagnostic_report_ok(0,'Traceback error',p,'preupdate'))
+        self.assertFalse(app.diagnostic_report_ok(3,'OK',p,'preupdate'))
+    def test_stage_qa_tools_missing_blocks(self):
+        ready, msg = app.stage_qa_archive_tools(Path(self.t.name), Path(self.t.name)/'dest')
+        self.assertFalse(ready)
+        self.assertIn('unzip', msg)
+    def test_stage_qa_tools_reject_non_elf(self):
+        p=Path(self.t.name)/'qa-tools'
+        p.mkdir()
+        (p/'unzip').write_text('#!/bin/sh\\necho misleading\\n')
+        (p/'zip').write_text('#!/bin/sh\\necho misleading\\n')
+        ready, msg = app.stage_qa_archive_tools(Path(self.t.name), Path(self.t.name)/'bin')
+        self.assertFalse(ready)
+        self.assertIn('ELF',msg)
+    def test_live_owned_wayland_socket(self):
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
+            p=Path(self.t.name)/'wayland-0'
+            server.bind(str(p))
+            self.assertEqual(app.owned_wayland_socket(Path(self.t.name),os.getuid()),'wayland-0')
+    def test_reject_stale_wayland_lock_and_regular_file(self):
+        p=Path(self.t.name)
+        (p/'wayland-0.lock').write_text('stale')
+        (p/'wayland-1').write_text('not a socket')
+        self.assertIsNone(app.owned_wayland_socket(p,os.getuid()))
+        self.assertIsNone(app.owned_wayland_socket(p,os.getuid()+1))
+    def test_check_no_pass_on_debian(self):
+        rc,out=app.run(['python3','-c','print("ok")'])
+        self.assertEqual(rc,0)
+        self.assertIn('ok',out)
+
+if __name__=='__main__':unittest.main()
