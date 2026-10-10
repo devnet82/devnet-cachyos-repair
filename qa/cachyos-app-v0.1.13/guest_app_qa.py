@@ -103,7 +103,7 @@ def stage_qa_archive_tools(root, destination):
         shutil.copyfile(source, target)
         target.chmod(0o700)
         with target.open('rb') as f:
-            if f.read(4) != b'\\x7fELF':
+            if f.read(4) != b'\x7fELF':
                 return False, f'{name} is not an ELF executable'
         rc, msg = run([str(target), '-v'], timeout=12)
         if rc != 0:
