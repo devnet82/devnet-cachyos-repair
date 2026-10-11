@@ -1,0 +1,168 @@
+name: Devnet Installed Apps Collector v0.1.2 Master QA native CachyOS GRUB BTRFS
+on:
+  push:
+    branches:
+      - qa/devnet-installed-apps-collector-v0.1.2
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  actions: read
+jobs:
+  native-installed-collector-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Exact collector source SHA-256 and Linux host regression suite
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd qa/collector-v0.1.2
+          printf '%s  %s\n' 406c752875dfd4498fcf691186e26a239db31000dbe5b147a7f6a48a1288cc6e devnet-export-installed-apps-v0.1.2.py | sha256sum -c -
+          python3 -m py_compile devnet-export-installed-apps-v0.1.2.py test_collector.py guest_acceptance.py
+          bash -n install.sh uninstall.sh installed-boot-qa.sh
+          python3 test_collector.py -q
+      - name: Prepare exact candidate and real native installed CachyOS VM scripts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y --no-install-recommends qemu-system-x86 qemu-utils mtools dosfstools
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+          mkdir -p /tmp/devnet-qa evidence
+          base=https://iso.cachyos.org/desktop/260809
+          iso=cachyos-desktop-linux-260809.iso
+          curl -fL --retry 3 --retry-all-errors --connect-timeout 15 --max-time 1200 "$base/$iso.sha256" -o "/tmp/devnet-qa/$iso.sha256"
+          curl -fL --retry 3 --retry-all-errors --connect-timeout 15 --max-time 1200 "$base/$iso" -o "/tmp/devnet-qa/$iso"
+          (cd /tmp/devnet-qa && sha256sum -c "$iso.sha256") | tee evidence/iso-sha256.txt
+          old=https://raw.githubusercontent.com/devnet82/devnet-cachyos-repair/1f6e23bc170009f15a90941b2fb81c9e280b59f2/qa/installed-v0.1.19
+          curl -fLsS "$old/install-guest.sh" -o /tmp/devnet-qa/install-guest.sh
+          curl -fLsS "$old/qemu_control.py" -o /tmp/devnet-qa/qemu_control.py
+          for f in devnet-export-installed-apps-v0.1.2.py test_collector.py guest_acceptance.py install.sh uninstall.sh VERSION installed-boot-qa.sh; do
+            cp "qa/collector-v0.1.2/$f" "/tmp/devnet-qa/$f"
+          done
+          printf '%s  %s\n' 406c752875dfd4498fcf691186e26a239db31000dbe5b147a7f6a48a1288cc6e /tmp/devnet-qa/devnet-export-installed-apps-v0.1.2.py | sha256sum -c -
+          python3 -m py_compile /tmp/devnet-qa/qemu_control.py
+          bash -n /tmp/devnet-qa/install-guest.sh /tmp/devnet-qa/installed-boot-qa.sh
+      - name: Allocate guarded disposable virtual disks and copy candidate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          qemu-img create -f qcow2 /tmp/devnet-qa/only-qa-system.qcow2 12G
+          truncate -s 128M /tmp/devnet-qa/only-qa-control.img
+          mkfs.vfat -F 32 -n DEVNETQA /tmp/devnet-qa/only-qa-control.img
+          image=/tmp/devnet-qa/only-qa-control.img
+          for n in install-guest.sh installed-boot-qa.sh devnet-export-installed-apps-v0.1.2.py test_collector.py guest_acceptance.py install.sh uninstall.sh VERSION; do
+            mcopy -i "$image" "/tmp/devnet-qa/$n" "::/$n"
+          done
+          mdir -i "$image" ::/ | tee evidence/control-disk-list.txt
+      - name: Install actual CachyOS BTRFS GRUB disk using previously verified workflow
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          qemu-system-x86_64 -machine q35,accel=kvm -cpu host -m 6144 -smp 4 \
+            -drive file=/tmp/devnet-qa/cachyos-desktop-linux-260809.iso,media=cdrom,if=ide \
+            -drive if=none,id=control,file=/tmp/devnet-qa/only-qa-control.img,format=raw \
+            -device virtio-blk-pci,drive=control,serial=DEVNETCONTROL \
+            -drive if=none,id=system,file=/tmp/devnet-qa/only-qa-system.qcow2,format=qcow2 \
+            -device virtio-blk-pci,drive=system,serial=DEVNETQAONLY,bootindex=1 \
+            -netdev user,id=qa-net -device virtio-net-pci,netdev=qa-net \
+            -boot order=d -vga std -display none -serial file:evidence/live-serial.log \
+            -monitor unix:/tmp/devnet-qa-live.sock,server=on,wait=off \
+            -daemonize -pidfile /tmp/devnet-qa-live.pid
+          sleep 125
+          python3 /tmp/devnet-qa/qemu_control.py /tmp/devnet-qa-live.sock begin-install
+          image=/tmp/devnet-qa/only-qa-control.img
+          for attempt in $(seq 1 150); do
+            mcopy -o -i "$image" ::/install.log evidence/install.log >/dev/null 2>&1 || true
+            if mcopy -o -i "$image" ::/install-ready.txt evidence/install-ready.txt >/dev/null 2>&1; then
+              echo INSTALLED_IMAGE_PREPARATION_REPORTED
+              break
+            fi
+            if grep -q '^INSTALL_SCRIPT_EXIT=[1-9]' evidence/install.log 2>/dev/null; then
+              echo INSTALL_SCRIPT_FAILED_EARLY
+              break
+            fi
+            sleep 7
+          done
+          mcopy -o -i "$image" ::/install.log evidence/install.log || true
+          mcopy -o -i "$image" ::/install-ready.txt evidence/install-ready.txt || true
+          mcopy -o -i "$image" ::/target-btrfs-uuid.txt evidence/target-btrfs-uuid.txt || true
+          grep -F INSTALLED_BTRFS_GRUB_PREPARED evidence/install-ready.txt
+          grep -F INSTALL_SCRIPT_EXIT=0 evidence/install.log
+      - name: Test collector clean install, Doctor, export, source preservation and BTRFS rollback
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if test -s /tmp/devnet-qa-live.pid; then kill "$(cat /tmp/devnet-qa-live.pid)" || true; fi
+          sleep 4
+          qemu-system-x86_64 -machine q35,accel=kvm -cpu host -m 4096 -smp 4 \
+            -drive if=none,id=control,file=/tmp/devnet-qa/only-qa-control.img,format=raw \
+            -device virtio-blk-pci,drive=control,serial=DEVNETCONTROL \
+            -drive if=none,id=system,file=/tmp/devnet-qa/only-qa-system.qcow2,format=qcow2 \
+            -device virtio-blk-pci,drive=system,serial=DEVNETQAONLY,bootindex=1 \
+            -nic none -boot order=c -vga std -display none -serial file:evidence/installed-serial.log \
+            -monitor unix:/tmp/devnet-qa-installed.sock,server=on,wait=off \
+            -daemonize -pidfile /tmp/devnet-qa-installed.pid
+          image=/tmp/devnet-qa/only-qa-control.img
+          for attempt in $(seq 1 80); do
+            for n in installed-boot.log installed-first-pass.txt collector-guest-result.json collector-unit-tests.log collector-test-status.txt app-snapshot-rollback.txt restore-grub-prepared.txt installed-restored-pass.txt; do
+              mcopy -o -i "$image" "::/$n" "evidence/$n" >/dev/null 2>&1 || true
+            done
+            if grep -q INSTALLED_GRUB_BTRFS_REBOOT_ROLLBACK_PASS evidence/installed-restored-pass.txt 2>/dev/null; then
+              echo INSTALLED_APP_SNAPSHOT_ROLLBACK_REBOOT_VERIFIED
+              break
+            fi
+            sleep 8
+          done
+          grep -F INSTALLED_GRUB_BTRFS_FIRST_BOOT_PASS evidence/installed-first-pass.txt
+          grep -F INSTALLED_GRUB_BTRFS_REBOOT_ROLLBACK_PASS evidence/installed-restored-pass.txt
+          grep -F COLLECTOR_GUEST_BTRFS_ROLLBACK_PASS evidence/app-snapshot-rollback.txt
+          test -s evidence/collector-guest-result.json
+      - name: Strict evidence assertion; VM green cannot mean release approved
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          rpath=Path("evidence/collector-guest-result.json")
+          assert rpath.exists(),"FAIL: installed guest result missing"
+          d=json.loads(rpath.read_text())
+          assert d["schema"]=="devnet-installed-cachyos-collector-qa-v0.1.2"
+          assert d["app_version"]=="0.1.2"
+          assert d["candidate_sha256_expected"]=="406c752875dfd4498fcf691186e26a239db31000dbe5b147a7f6a48a1288cc6e"
+          assert d["release_approval"]=="BLOCKED"
+          assert d["real_user_PC"]=="NOT_TESTED"
+          assert d["app_hardware_acceptance"]=="NOT_TESTED"
+          checks=("real_installed_cachyos_btrfs","exact_candidate_integrity",
+             "clean_install_and_doctor","version_consistency",
+             "complete_export_and_zip_sha256","private_settings_and_ssh_exclusion",
+             "0600_archive_permissions","privacy_default_fail_closed",
+             "missing_source_fail_closed","idempotent_install_uninstall",
+             "target_app_read_only")
+          for k in checks: assert d["checks"].get(k)=="PASS",(k,d)
+          status=Path("evidence/collector-test-status.txt").read_text()
+          assert "UNIT=PASS" in status and "GUEST=PASS" in status,status
+          assert "INSTALLED_GRUB_BTRFS_REBOOT_ROLLBACK_PASS" in Path("evidence/installed-restored-pass.txt").read_text()
+          assert "COLLECTOR_GUEST_BTRFS_ROLLBACK_PASS" in Path("evidence/app-snapshot-rollback.txt").read_text()
+          log=Path("evidence/collector-unit-tests.log").read_text()
+          assert "OK" in log and "FAILED" not in log,log[-600:]
+          print("INSTALLED_CACHYOS_COLLECTOR_VM_FIXTURE_QA_PASS")
+          print("COLLECTOR_HARDWARE_REAL_USER_APPLICATION_COMPLETENESS_NOT_TESTED")
+          print("MASTER_QA_RELEASE_APPROVAL_BLOCKED")
+          PY
+      - name: Preserve evidence even when any required check fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-installed-collector-v0.1.2-master-qa-evidence
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: warn
