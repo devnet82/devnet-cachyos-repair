@@ -26,7 +26,14 @@ jobs:
           python3 -m py_compile devnet-export-installed-apps-v0.1.3.py test_collector.py guest_acceptance.py
           bash -n install.sh uninstall.sh installed-boot-qa.sh
           python3 test_collector.py -q
-          sudo python3 test_install_lifecycle.py -q
+          # Ubuntu runner's /home/runner checkout is inaccessible to the
+          # unprivileged nobody fixture. Stage immutable test sources in /tmp.
+          upgrade_dir=$(mktemp -d /tmp/devnet-col-upgrade-XXXXXXXX)
+          chmod 0755 "$upgrade_dir"
+          cp test_install_lifecycle.py install.sh uninstall.sh devnet-export-installed-apps-v0.1.3.py "$upgrade_dir/"
+          chmod 0644 "$upgrade_dir"/*
+          sudo python3 "$upgrade_dir/test_install_lifecycle.py" -q
+          rm -rf "$upgrade_dir"
       - name: Prepare exact candidate and real native installed CachyOS VM scripts
         shell: bash
         run: |
