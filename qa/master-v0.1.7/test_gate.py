@@ -34,7 +34,7 @@ def build_valid_native(base):
     inv={"format":"devnet-master-qa-inventory-v0.1.0",
         "app":APP["guest_app"],"archive_name":APP["archive"],
         "sha256_expected":APP["sha256"],"sha256_observed":APP["sha256"],
-        "checks":{k:{"status":"PASS"} for k in ("exact_archive","zip_safety_crc","inventory")}}
+        "checks":{k:"PASS" for k in ("exact_archive","zip_safety_crc","inventory")}}
     evidence(base,"inventory","installation-inventory.json",inv)
     installed={"format":"devnet-installed-lifecycle-v0.1.0",
       "app":APP["guest_app"],
