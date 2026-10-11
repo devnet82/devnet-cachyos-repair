@@ -1,0 +1,52 @@
+name: Devnet exact archive QA runner v0.1.1
+on:
+  push:
+    branches:
+      - qa/devnet-archive-audit-v0.1.1
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  verify-runner:
+    name: Verify safe ZIP/tar.gz QA runner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate Python runner
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qa/archive-v0.1.1/audit_archives.py qa/archive-v0.1.1/test_audit_archives.py
+          (cd qa/archive-v0.1.1 && python3 -m unittest -v test_audit_archives.py)
+          python3 qa/archive-v0.1.1/audit_archives.py --help
+      - name: Exercise packaged audit and record evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p synthetic-audit
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile('synthetic-audit/sample.zip','w') as f:
+              f.writestr('devnet-test/app.py','print("safe fixture")\n')
+              f.writestr('devnet-test/install.sh','#!/bin/bash\necho "no install"\n')
+              f.writestr('devnet-test/VERSION','0.0.0-fixture\n')
+          PY
+          python3 qa/archive-v0.1.1/audit_archives.py synthetic-audit/sample.zip --report-dir evidence
+          python3 - <<'PY'
+          import json
+          r=json.load(open('evidence/sample.zip.qa.json'))
+          assert r['overall']=='PARTIAL',r
+          assert r['checks']['archive_integrity']['status']=='PASS',r
+          assert r['checks']['static_syntax']['status']=='PASS',r
+          assert r['master_qa']=='BLOCKED',r
+          print('QA_RUNNER_SYNTHETIC_PASS_NO_HARDWARE')
+          PY
+      - name: Preserve self-test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-archive-qa-runner-v0.1.1-synthetic-evidence
+          path: evidence/
+          if-no-files-found: warn
