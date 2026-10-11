@@ -54,3 +54,18 @@ Original ZIP found in personal Library (12,758 bytes) and inspected locally only
 - BTRFS snapshot revert of the disposable installed guest, if successful, does not prove application-specific upgrade/rollback paths.
 - GUI/tray interaction, Quest hardware, GPU, Sonic Pad, RGB controllers, and physical host acceptance are all NOT_TESTED.
 - The Proton RTSP ZIP must be scanned privately for credentials/private URLs before upload or executing any installation workflow.
+
+
+## Strict QA gate v0.1.1: completed 2026-10-11
+
+The false-green installed workflow was corrected by a separately versioned **artifact-only** strict gate, which re-read the exact saved guest JSON and logs; this did not rebuild the VM or application candidates. All five strict runs completed and **correctly failed the lifecycle approval gate**. These red statuses are expected, not new application failures.
+
+| App | Strict gate run | App install classification | Original app ZIP changed? |
+| --- | --- | --- | --- |
+| RGB Control | https://github.com/devnet82/devnet-rgb-control/actions/runs/38140508091 | BLOCKED_ENVIRONMENT_OPENRGB | No |
+| VR Stack Control | https://github.com/devnet82/vr-stack-control/actions/runs/38140510594 | PACKAGE_OR_INSTALLER_FAILURE | No |
+| WayVR Watch Manager | https://github.com/devnet82/devnet-wayvr-watch-manager/actions/runs/38140513036 | PACKAGE_OR_INSTALLER_FAILURE | No |
+| ChatBox GTK | https://github.com/devnet82/devnet-chatbox/actions/runs/38140516303 | BLOCKED_ENVIRONMENT_PRIVILEGES_DEPENDENCIES | No |
+| VRChat Wrapper (private) | https://github.com/devnet82/vrchat-ytdlp-deno-wrapper/actions/runs/38140518433 | BLOCKED_ENVIRONMENT_STEAM_PREFIX | No |
+
+Each strict run saved `master-qa-strict-installed-gate-v0.1.1` as a workflow artifact and exited nonzero when application installation was not verified. The original older workflow conclusions remain preserved, but cannot be used as release acceptance evidence. All draft releases stay unpublished.
