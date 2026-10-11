@@ -237,7 +237,7 @@ def main():
               sum(x["status"]=="PASS" for x in a["checks"].values()),
               "FAIL",sum(x["status"]=="FAIL" for x in a["checks"].values()),
               "NOT_TESTED",sum(x["status"]=="NOT_TESTED" for x in a["checks"].values()),
-              a.get("installation_classification",""))
+              a.get("installation_classification",""),"EVIDENCE_ERROR",a.get("evidence_error",""))
     return 0 if report["master_qa_release_approval"]=="APPROVED" else 2
 
 if __name__=="__main__":sys.exit(main())
