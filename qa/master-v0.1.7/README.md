@@ -19,16 +19,16 @@ Each original five-app workflow validated **three PASS checks** (exact ZIP integ
 
 | App | Clean-install evidence classification | v0.1.7 QA run | Master approval |
 | --- | --- | --- | --- |
-| RGB Control v8.11 | BLOCKED_ENVIRONMENT_OPENRGB | [38151431493](https://github.com/devnet82/devnet-rgb-control/actions/runs/38151431493) | BLOCKED |
-| VR Stack Control v0.6.132 | PACKAGE_OR_INSTALLER_FAILURE (missing installed vr-control-gui) | [38151434599](https://github.com/devnet82/vr-stack-control/actions/runs/38151434599) | BLOCKED |
-| WayVR Watch Manager v0.1.34 | PACKAGE_OR_INSTALLER_FAILURE (missing installed doctor.py) | [38151437621](https://github.com/devnet82/devnet-wayvr-watch-manager/actions/runs/38151437621) | BLOCKED |
-| ChatBox GTK v0.1.3.133 | BLOCKED_ENVIRONMENT_PRIVILEGES_DEPENDENCIES | [38151440969](https://github.com/devnet82/devnet-chatbox/actions/runs/38151440969) | BLOCKED |
-| VRChat yt-dlp/Deno Wrapper v0.1.4 | BLOCKED_ENVIRONMENT_STEAM_PREFIX | [38151443011](https://github.com/devnet82/vrchat-ytdlp-deno-wrapper/actions/runs/38151443011) | BLOCKED |
+| RGB Control v8.11 | BLOCKED_ENVIRONMENT_OPENRGB | [38151856428](https://github.com/devnet82/devnet-rgb-control/actions/runs/38151856428) | BLOCKED |
+| VR Stack Control v0.6.132 | PACKAGE_OR_INSTALLER_FAILURE (missing installed vr-control-gui) | [38151859668](https://github.com/devnet82/vr-stack-control/actions/runs/38151859668) | BLOCKED |
+| WayVR Watch Manager v0.1.34 | PACKAGE_OR_INSTALLER_FAILURE (missing installed doctor.py) | [38151866496](https://github.com/devnet82/devnet-wayvr-watch-manager/actions/runs/38151866496) | BLOCKED |
+| ChatBox GTK v0.1.3.133 | BLOCKED_ENVIRONMENT_PRIVILEGES_DEPENDENCIES | [38151868862](https://github.com/devnet82/devnet-chatbox/actions/runs/38151868862) | BLOCKED |
+| VRChat yt-dlp/Deno Wrapper v0.1.4 | BLOCKED_ENVIRONMENT_STEAM_PREFIX | [38151871270](https://github.com/devnet82/vrchat-ytdlp-deno-wrapper/actions/runs/38151871270) | BLOCKED |
 | Proton RTSP v1.77 | Original local-only SHA/CRC and targeted private-information scan PASS; native installed app NOT_TESTED; original kept unuploaded | No GitHub candidate gate | BLOCKED |
 | Sonic Pad Auto Printer v0.1.29 | Physical Sonic Pad and USB/Klipper test rig NOT_TESTED in this programme | No device QA in this gate | BLOCKED |
 | CachyOS Repair v0.1.20 | Existing installed GRUB/BTRFS platform recovery PASS from [38083265759](https://github.com/devnet82/devnet-cachyos-repair/actions/runs/38083265759), not full v0.1.20 application lifecycle | Central check only | BLOCKED |
 
-**Central consolidated eight-app result:** [GitHub Actions run 38151700200](https://github.com/devnet82/devnet-cachyos-repair/actions/runs/38151700200). The unit tests pass; the release job intentionally fails closed and preserves an eight-app JSON decision artifact. The central aggregator does not automatically possess private cross-repo raw evidence; missing local evidence is labelled NOT_TESTED. App-local gate artifacts are the independently verified package-level proof. Green jobs from older installed-system workflows remain historical and cannot override these release decisions.
+**Central consolidated eight-app result:** [GitHub Actions run 38151828817](https://github.com/devnet82/devnet-cachyos-repair/actions/runs/38151828817). The unit tests pass; the release job intentionally fails closed and preserves an eight-app JSON decision artifact. The central aggregator does not automatically possess private cross-repo raw evidence; missing local evidence is labelled NOT_TESTED. App-local gate artifacts are the independently verified package-level proof. Green jobs from older installed-system workflows remain historical and cannot override these release decisions.
 
 ## Safeguards and follow-on scope
 
