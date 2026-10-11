@@ -2,7 +2,7 @@
 
 Date: 2026-10-11
 QA harness: `devnet-native-cachyos-vm-qa-v0.1.2` (guest harness v0.1.0 except RGB corrected to v0.1.1 and ChatBox corrected to v0.1.2).
-Target: authentic signed/checksummed CachyOS desktop ISO `cachyos-desktop-linux-260809.iso` with `ID=cachyos`, kernel observed `6.18.42-1-cachyos-lts`.
+Target: authentic CachyOS desktop ISO verified against its published SHA-256 checksum (GPG signature NOT_TESTED) `cachyos-desktop-linux-260809.iso` with `ID=cachyos`, kernel observed `6.18.42-1-cachyos-lts`.
 VM: isolated x86_64 QEMU/KVM `q35` guest, FAT control drive explicitly marked `DEVNETCONTROL`, no network, no device passthrough.
 Tests ran against the original SHA-256-pinned draft ZIPs, not repository main-branch source.
 
