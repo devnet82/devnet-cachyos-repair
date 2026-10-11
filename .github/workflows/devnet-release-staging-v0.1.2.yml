@@ -1,0 +1,84 @@
+name: Devnet latest six draft-staging self-test v0.1.2
+on:
+  push:
+    branches:
+      - qa/devnet-release-staging-v0.1.2
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  test-staging-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Syntax and non-upload regression tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          orig=qa/release-staging-v0.1.2/stage-devnet-latest-v0.1.2.sh
+          bash -n "$orig"
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          mkdir -p "$tmp/files" "$tmp/mockbin"
+          cat > "$tmp/mockbin/gh" <<'SH'
+          #!/bin/sh
+          echo 'GitHub CLI unexpectedly invoked during DRY RUN' >&2
+          exit 90
+          SH
+          chmod +x "$tmp/mockbin/gh"
+          set +e
+          PATH="$tmp/mockbin:$PATH" bash "$orig" "$tmp/files" > "$tmp/missing.txt" 2>&1
+          rc=$?
+          set -e
+          test "$rc" -eq 3
+          grep -q 'None of the six original frozen ZIPs' "$tmp/missing.txt"
+          python3 - "$tmp" "$orig" <<'PY'
+          import pathlib,hashlib,zipfile,sys
+          root=pathlib.Path(sys.argv[1]); original=pathlib.Path(sys.argv[2]).read_text()
+          name='devnet-rgb-control-v8.11.zip'
+          file=root/'files'/name
+          with zipfile.ZipFile(file,'w') as z: z.writestr('safe.py','pass\n')
+          h=hashlib.sha256(file.read_bytes()).hexdigest()
+          old='aac1ecc08f1d905959e390396b754be1999345e5076aeebf0d9b5dc8fe4fbdb0|39549'
+          assert old in original, "pinned original release manifest changed unexpectedly"
+          assert original.count(old)==1
+          (root/'fixture-runner.sh').write_text(original.replace(old,h+'|'+str(file.stat().st_size)))
+          PY
+          bash -n "$tmp/fixture-runner.sh"
+          PATH="$tmp/mockbin:$PATH" bash "$tmp/fixture-runner.sh" "$tmp/files" > "$tmp/good.txt"
+          grep -q 'VERIFIED EXACT: devnet-rgb-control-v8.11.zip' "$tmp/good.txt"
+          grep -q 'Verified exact archives found: 1/6' "$tmp/good.txt"
+          grep -q 'DRY RUN ONLY' "$tmp/good.txt"
+          set +e
+          PATH="$tmp/mockbin:$PATH" bash "$orig" "$tmp/files" > "$tmp/mismatch.txt" 2>&1
+          rc=$?
+          set -e
+          test "$rc" -eq 5
+          grep -q 'WRONG BUILD' "$tmp/mismatch.txt"
+          python3 - "$tmp" <<'PY'
+          import pathlib,zipfile,sys
+          root=pathlib.Path(sys.argv[1])
+          f=root/'files'/'devnet-rgb-control-v8.11.zip'
+          with zipfile.ZipFile(f,'w') as z:
+              z.writestr('../evil.txt','x')
+          import hashlib
+          s=(root/'fixture-runner.sh').read_text()
+          from hashlib import sha256
+          import re
+          s=re.sub(r'[a-f0-9]{64}\|\d+$',
+                   sha256(f.read_bytes()).hexdigest()+'|'+str(f.stat().st_size),s,
+                   count=1,flags=re.MULTILINE)
+          (root/'fixture-runner-unsafe.sh').write_text(s)
+          PY
+          set +e
+          PATH="$tmp/mockbin:$PATH" bash "$tmp/fixture-runner-unsafe.sh" "$tmp/files" > "$tmp/unsafe.txt" 2>&1
+          rc=$?
+          set -e
+          test "$rc" -eq 5
+          grep -q 'BAD ZIP' "$tmp/unsafe.txt"
+          grep -q -- '--draft' "$orig"
+          if grep -q -- '--clobber' "$orig"; then exit 1; fi
+          echo 'DEVNET_STAGING_V0.1.2_DRYSYNTHETIC_ALL_SAFETY_TESTS_PASS'
