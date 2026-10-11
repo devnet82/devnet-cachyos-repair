@@ -1,0 +1,75 @@
+name: Devnet Consolidated Master QA v0.1.7 - eight apps, fail closed
+on:
+  push:
+    branches:
+      - qa/devnet-master-consolidated-v0.1.7
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  actions: read
+jobs:
+  qa-gate-self-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Syntax, integrity and fail-closed regression suite
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile qa/master-v0.1.7/gate.py qa/master-v0.1.7/test_gate.py
+          python3 -m json.tool qa/master-v0.1.7/candidates.json >/dev/null
+          python3 -m unittest discover -s qa/master-v0.1.7 -p 'test_gate.py' -v
+  mandatory-eight-app-release-gate:
+    needs: qa-gate-self-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check known installed GRUB/BTRFS system evidence separately
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p evidence/repair/platform
+          if gh run download 38083265759 --repo devnet82/devnet-cachyos-repair \
+             --name cachyos-installed-grub-btrfs-qa-v0.1.19 \
+             --dir evidence/repair/platform; then
+             test -s evidence/repair/platform/installed-system-qa.json
+             python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("evidence/repair/platform/installed-system-qa.json")
+          d=json.loads(p.read_text())
+          assert d.get("gate")=="devnet-installed-cachyos-vm-v0.1.19"
+          assert d.get("all_vm_checks_pass") is True
+          assert all(x=="PASS" for x in d.get("checks",{}).values())
+          print("INSTALLED_GRUB_BTRFS_PLATFORM_BASELINE_PASS")
+          print("APPLICATION_INSTALL_UPGRADE_GUI_PHYSICAL_HARDWARE_NOT_TESTED")
+          PY
+          else
+             echo "NOT_TESTED: GRUB/BTRFS historical artifact inaccessible; gate remains BLOCKED"
+          fi
+      - name: Strict consolidated eight-application release decision
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p evidence/reports
+          python3 qa/master-v0.1.7/gate.py \
+            --manifest qa/master-v0.1.7/candidates.json \
+            --evidence-root evidence \
+            --output evidence/reports/master-qa-v0.1.7.json
+      - name: Preserve consolidated results even when release gate correctly blocks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-master-qa-v0.1.7-eight-app-release-gate
+          path: |
+            evidence/reports/
+            evidence/repair/platform/installed-system-qa.json
+          retention-days: 30
+          if-no-files-found: warn
