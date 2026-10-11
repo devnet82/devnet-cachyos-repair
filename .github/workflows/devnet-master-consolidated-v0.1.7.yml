@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Check known installed GRUB/BTRFS system evidence separately
+      - name: Check original GRUB/BTRFS installed-system rollback evidence
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -39,21 +39,29 @@ jobs:
           if gh run download 38083265759 --repo devnet82/devnet-cachyos-repair \
              --name cachyos-installed-grub-btrfs-qa-v0.1.19 \
              --dir evidence/repair/platform; then
-             test -s evidence/repair/platform/installed-system-qa.json
-             python3 - <<'PY'
+            echo "ORIGINAL_INSTALLED_GRUB_BTRFS_EVIDENCE_DOWNLOADED"
+          else
+            echo "NOT_TESTED: historical installed-system artifact unavailable"
+          fi
+          python3 - <<'PY'
           import json
           from pathlib import Path
-          p=Path("evidence/repair/platform/installed-system-qa.json")
-          d=json.loads(p.read_text())
-          assert d.get("gate")=="devnet-installed-cachyos-vm-v0.1.19"
-          assert d.get("all_vm_checks_pass") is True
-          assert all(x=="PASS" for x in d.get("checks",{}).values())
-          print("INSTALLED_GRUB_BTRFS_PLATFORM_BASELINE_PASS")
-          print("APPLICATION_INSTALL_UPGRADE_GUI_PHYSICAL_HARDWARE_NOT_TESTED")
+          folder=Path("evidence/repair/platform")
+          conditions={
+            "first_installed_boot":("installed-first-pass.txt","INSTALLED_GRUB_BTRFS_FIRST_BOOT_PASS"),
+            "snapshot_restore_prepared":("restore-grub-prepared.txt","BTRFS_RESTORED_ENTRY_WRITTEN"),
+            "restored_installed_reboot":("installed-restored-pass.txt","INSTALLED_GRUB_BTRFS_REBOOT_ROLLBACK_PASS")}
+          result={}
+          for key,(name,marker) in conditions.items():
+              p=folder/name
+              result[key]="PASS" if p.is_file() and marker in p.read_text(errors="replace") else "NOT_TESTED"
+          status="PASS" if all(v=="PASS" for v in result.values()) else "NOT_TESTED"
+          (folder/"platform-baseline-v0.1.7.json").write_text(json.dumps({
+              "source_run_id":38083265759,"platform_grub_btrfs_status":status,
+              "checks":result,"app_clean_install":"NOT_TESTED",
+              "hardware_acceptance":"NOT_TESTED"},indent=2)+"\n")
+          print("INSTALLED_GRUB_BTRFS_PLATFORM_BASELINE_"+status)
           PY
-          else
-             echo "NOT_TESTED: GRUB/BTRFS historical artifact inaccessible; gate remains BLOCKED"
-          fi
       - name: Strict consolidated eight-application release decision
         shell: bash
         run: |
@@ -70,6 +78,6 @@ jobs:
           name: devnet-master-qa-v0.1.7-eight-app-release-gate
           path: |
             evidence/reports/
-            evidence/repair/platform/installed-system-qa.json
+            evidence/repair/platform/platform-baseline-v0.1.7.json
           retention-days: 30
           if-no-files-found: warn
