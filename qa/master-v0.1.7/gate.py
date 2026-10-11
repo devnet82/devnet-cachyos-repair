@@ -77,7 +77,16 @@ def evaluate(c,root):
     if "native" not in c:
         if c.get("platform_vm"):
             a["evidence_runs"]["platform_vm"]=c["platform_vm"]["run"]
-            a["note"]="Existing GRUB/BTRFS recovery smoke covers platform only, not candidate lifecycle"
+            p=root/app/"platform"/"platform-baseline-v0.1.7.json"
+            if p.is_file():
+                baseline=load(p)
+                verified=(baseline.get("source_run_id")==c["platform_vm"]["run"]
+                    and baseline.get("platform_grub_btrfs_status")=="PASS"
+                    and len(baseline.get("checks",{}))==3
+                    and all(v=="PASS" for v in baseline["checks"].values()))
+                a["installed_system_platform_baseline"]="PASS" if verified else "FAIL"
+            else:a["installed_system_platform_baseline"]="NOT_TESTED"
+            a["note"]="GRUB/BTRFS platform smoke is separate from v0.1.20 application installation and hardware acceptance"
         return a
 
     # Four immutable historical artifact groups, downloaded by app-local workflow.
