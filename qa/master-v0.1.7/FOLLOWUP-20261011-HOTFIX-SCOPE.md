@@ -27,12 +27,12 @@ Both workflows retrieved the original unpublished ZIP asset, verified its origin
 - ChatBox GTK v0.1.3.133 original ZIP: isolated clean install and uninstall PASS with `DEVNET_CHATBOX_TEST_MODE=1`, with no real GTK/media dependency validation; production desktop NOT_TESTED.
 - VRChat yt-dlp/Deno Wrapper v0.1.4: packaged suite PASS with a fake Steam prefix and compiler, including repeated installation, uninstall/restore and missing dependency preflight; real SteamVR/VRChat playback NOT_TESTED.
 
-Native installed-CachyOS test-mode workflows launched (do not mark PASS until completed):
+Native installed-CachyOS test-mode workflows **COMPLETED SUCCESSFULLY**; original ZIP SHA-256, isolated fixture lifecycle checks, BTRFS snapshot restore and reboot PASS:
 - RGB: https://github.com/devnet82/devnet-rgb-control/actions/runs/38155099232
 - ChatBox: https://github.com/devnet82/devnet-chatbox/actions/runs/38155105112
 - Wrapper (private): https://github.com/devnet82/vrchat-ytdlp-deno-wrapper/actions/runs/38155111267
 
-## Remaining acceptance requirements
+These three jobs each preserved their guest JSON, logs and restore/reboot markers as an Actions artifact, and asserted their fixture checks rather than trusting green workflow status. They did **not** run production dependencies, actual desktop UI, physical devices or live VRChat playback. Real release approvals remain BLOCKED.\n\n## Remaining acceptance requirements
 
 - Authentic supported full-application baseline upgrades for VR Stack/WayVR, including service/GUI and protected user data.
 - Native production-mode dependencies and live GUI/tray for RGB and ChatBox; real Windows wrapper binary, Steam Proton prefix and playback for VRChat.
