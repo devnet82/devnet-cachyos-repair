@@ -66,7 +66,7 @@ def evaluate(c,root):
     a={"id":app,"application":c["name"],"version":c["version"],
        "repository":c.get("repo"),"checks":{},"evidence_runs":{},
        "master_qa_release_approval":"BLOCKED"}
-    for check in CHECKS:set_check(a,check,"NOT_TESTED","no complete verified evidence")
+    for requirement in CHECKS:set_check(a,requirement,"NOT_TESTED","no complete verified evidence")
     if c.get("original_unuploaded"):
         a["note"]="Private-content review in prior session is not a native CachyOS installed test; ZIP remains unuploaded"
         return a
