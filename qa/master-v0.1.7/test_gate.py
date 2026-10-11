@@ -109,6 +109,40 @@ class GateTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"may not override"):
                 gate.evaluate(APP,Path(temp))
 
+    def test_unverified_supplemental_pass_is_not_accepted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            build_valid_native(temp)
+            evidence(temp,"supplemental","scenarios.json",{
+                "schema":"devnet-master-qa-scenarios-v0.1.7","app":APP["id"],
+                "checks":{"doctor_self_check":{"status":"PASS",
+                    "source_run":"https://github.com/devnet82/vr-stack-control/actions/runs/123456",
+                    "evidence_file":"doctor.log","evidence_sha256":"0"*64}}})
+            with self.assertRaisesRegex(ValueError,"missing/unsafe"):
+                gate.evaluate(APP,Path(temp))
+
+    def test_supplemental_proof_bytes_and_hardware_operator_signoff(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as temp:
+            build_valid_native(temp)
+            proof=Path(temp)/APP["id"]/"supplemental"/"proof"/"doctor.log"
+            proof.parent.mkdir(parents=True,exist_ok=True)
+            proof.write_bytes(b"verified evidence fixture\n")
+            v={"status":"PASS",
+                "source_run":"https://github.com/devnet82/vr-stack-control/actions/runs/123456",
+                "evidence_file":"doctor.log",
+                "evidence_sha256":hashlib.sha256(proof.read_bytes()).hexdigest()}
+            evidence(temp,"supplemental","scenarios.json",{
+                "schema":"devnet-master-qa-scenarios-v0.1.7","app":APP["id"],
+                "checks":{"doctor_self_check":v}})
+            result=gate.evaluate(APP,Path(temp))
+            self.assertEqual(gate.check(result,"doctor_self_check"),"PASS")
+            self.assertEqual(gate.check(result,"physical_hardware_acceptance"),"NOT_TESTED")
+            evidence(temp,"supplemental","scenarios.json",{
+                "schema":"devnet-master-qa-scenarios-v0.1.7","app":APP["id"],
+                "checks":{"physical_hardware_acceptance":v}})
+            with self.assertRaisesRegex(ValueError,"operator sign-off"):
+                gate.evaluate(APP,Path(temp))
+
     def test_missing_evidence_full_command_exits_blocked_and_saves_json(self):
         with tempfile.TemporaryDirectory() as temp:
             output=Path(temp)/"out.json"
