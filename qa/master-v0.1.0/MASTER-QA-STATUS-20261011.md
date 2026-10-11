@@ -93,3 +93,20 @@ The other three candidates are registered with independent BLOCKED decisions:
 **Central eight-app gate:** https://github.com/devnet82/devnet-cachyos-repair/actions/runs/38151828817 (passing self-tests, intentional release-blocking failure, eight-app JSON report saved). This central report does not automatically read the private repository's raw GitHub artifact; its missing locally imported app evidence is explicitly NOT_TESTED, while the five app-local gate reports are the detailed verified sources.
 
 **Safeguards:** All five GitHub draft releases remain unpublished and byte-exact SHA-256 digests were independently rechecked. No original archive or published version changed; only QA branches and workflow/test files changed. No command was executed on the user's real CachyOS installation. Actual user's bootloader: GRUB with BTRFS.
+
+
+## New test execution — five installed CachyOS VMs on 11 October 2026 (corrected classification)
+
+This section supersedes any earlier suggestion that VR Stack v0.6.132 and WayVR Watch v0.1.34 are defective *full installers*. Both original ZIPs explicitly describe **update-only hotfixes**, so failure against an empty HOME demonstrated a missing prerequisite, not a proven package fault. Do not repair/rebuild either original ZIP solely on that basis. The issue descriptions in their GitHub repositories have been corrected.
+
+| Application | Evidence run | New evidence-based result | Limits |
+| --- | --- | --- | --- |
+| VR Stack v0.6.132 | https://github.com/devnet82/vr-stack-control/actions/runs/38154711365 | PASS: installed native CachyOS, exact original SHA, supported v0.6.131 **fixture** upgrade, repeat install, version-sync, rollback, interrupted upgrade recovery, baseline rejection and restored GRUB/BTRFS reboot | Actual historical full v0.6.131 app upgrade, GUI/tray and hardware NOT_TESTED |
+| WayVR Watch v0.1.34 | https://github.com/devnet82/devnet-wayvr-watch-manager/actions/runs/38154717720 | PASS: installed native CachyOS, exact original SHA, supported v0.1.33 **fixture** upgrade, Doctor regression, protected metrics/watch files, repeat install, rollback, interrupted upgrade recovery, baseline rejection and restored GRUB/BTRFS reboot | Actual historical full v0.1.33 app upgrade and Quest hardware NOT_TESTED |
+| RGB Control v8.11 | https://github.com/devnet82/devnet-rgb-control/actions/runs/38155099232 | PASS: installed native CachyOS, exact original SHA, **DEVNET_TEST_MODE** install, v8.8-style settings migration, repeat install, uninstall preserving user config and restored GRUB/BTRFS reboot | Full OpenRGB/Commander/device/systemd production acceptance NOT_TESTED |
+| ChatBox GTK v0.1.3.133 | https://github.com/devnet82/devnet-chatbox/actions/runs/38155105112 | PASS: installed native CachyOS, exact original SHA, **DEVNET_CHATBOX_TEST_MODE** install, repeat install, injected transaction-failure rollback, uninstall preserving config and restored GRUB/BTRFS reboot | GTK/media dependencies and actual desktop GUI NOT_TESTED |
+| VRChat Wrapper v0.1.4 | https://github.com/devnet82/vrchat-ytdlp-deno-wrapper/actions/runs/38155111267 | PASS: installed native CachyOS, exact original SHA, fake isolated Steam-prefix installer/reinstall/uninstall restore, missing-Deno preflight, restored GRUB/BTRFS reboot | Real MinGW-built Windows binary, Steam Proton/VRChat playback NOT_TESTED |
+
+These five runs are distinct from the earlier *native live ISO* regression 7/7 PASS and the original v0.1.7 strict master release gate. All five new workflows completed successful GitHub Actions jobs with preserved **guest JSON** and restore/reboot evidence; they ran only disposable QEMU/KVM disks with strict serial guards. All five original candidate draft assets remain unmodified and unpublished. **Master QA release approvals for all eight applications remain BLOCKED** until real prerequisites, real full baselines, GUI/services and hardware acceptance are completed.
+
+Technical details and scope: [qa/master-v0.1.7/FOLLOWUP-20261011-HOTFIX-SCOPE.md](../master-v0.1.7/FOLLOWUP-20261011-HOTFIX-SCOPE.md).
