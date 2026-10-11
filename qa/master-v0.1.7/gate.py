@@ -46,7 +46,8 @@ def load(path):
     return result
 
 def check_status(report,key):
-    return report.get("checks",{}).get(key,{}).get("status","NOT_TESTED")
+    item=report.get("checks",{}).get(key,"NOT_TESTED")
+    return item.get("status","NOT_TESTED") if isinstance(item,dict) else item if isinstance(item,str) else "NOT_TESTED"
 
 def set_check(result,key,status,proof):
     if status not in STATES:raise ValueError("invalid evidence status "+repr(status))
