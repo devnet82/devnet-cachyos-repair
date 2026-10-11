@@ -189,11 +189,27 @@ def evaluate(c,root):
             if key in ("archive_integrity","native_cachyos_package_tests","installed_grub_btrfs","clean_install","uninstall"):
                 raise ValueError(app+": supplemental data may not override primary evidence")
             if v.get("status") not in STATES:raise ValueError(app+": invalid scenario status")
-            if v["status"]=="PASS" and (
-                not re.fullmatch(r"https://github\.com/devnet82/[a-zA-Z0-9_.-]+/actions/runs/\d+",v.get("source_run","")) or
-                not v.get("evidence_sha256") or not re.fullmatch("[0-9a-f]{64}",v["evidence_sha256"])
-            ):
-                raise ValueError(app+": supplemental PASS without exact attributable run and digest")
+            if v["status"]=="PASS":
+                # A URL and claimed hash are NOT proof: actually hash local evidence bytes.
+                source=v.get("source_run","")
+                expected_prefix="https://github.com/"+c.get("repo","")+"/actions/runs/"
+                digest=v.get("evidence_sha256","")
+                proofname=v.get("evidence_file","")
+                if not (source.startswith(expected_prefix)
+                        and re.fullmatch(r"\d+",source[len(expected_prefix):])
+                        and re.fullmatch("[0-9a-f]{64}",digest)
+                        and re.fullmatch("[A-Za-z0-9_.-]{1,100}",proofname)
+                        and proofname not in (".","..")):
+                    raise ValueError(app+": supplemental PASS needs exact app run and evidence identity")
+                proof=root/app/"supplemental"/"proof"/proofname
+                if proof.is_symlink() or not proof.is_file() or proof.stat().st_size>8*1024*1024:
+                    raise ValueError(app+": missing/unsafe supplementary proof file")
+                if hash_file(proof)!=digest:
+                    raise ValueError(app+": supplemental evidence bytes failed SHA-256")
+                if key=="physical_hardware_acceptance":
+                    if (v.get("human_signoff") is not True
+                            or not v.get("reviewer") or not v.get("hardware_id")):
+                        raise ValueError(app+": physical hardware PASS requires explicit operator sign-off")
             set_check(a,key,v["status"],v.get("source_run","supplemental report: no PASS"))
     return a
 
