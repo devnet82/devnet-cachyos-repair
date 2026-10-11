@@ -1,0 +1,62 @@
+name: Devnet release staging uploader self-test v0.1.0
+on:
+  push:
+    branches:
+      - qa/devnet-release-staging-v0.1.0
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  test-upload-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Self-test only, never upload packages
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          tool=qa/release-staging-v0.1.0/stage-devnet-packages.sh
+          bash -n "$tool"
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          mkdir -p "$tmp/files" "$tmp/mockbin"
+          cat > "$tmp/mockbin/gh" <<'SH'
+          #!/bin/sh
+          echo 'DANGEROUS: mocked gh was unexpectedly invoked' >&2
+          exit 98
+          SH
+          chmod +x "$tmp/mockbin/gh"
+          python3 - "$tmp/files" <<'PY'
+          import pathlib,sys,zipfile,tarfile,io
+          root=pathlib.Path(sys.argv[1])
+          names=[
+            'devnet-rgb-control-v8.9(1).zip',
+            'devnet-wayvr-watch-manager-v0.1.33.zip',
+            'vr-stack-control-v0.6.131.zip',
+            'devnet-sonicpad-auto-printer-v0.1.29.zip']
+          for name in names:
+              with zipfile.ZipFile(root/name,'w') as z:
+                  z.writestr('test.txt','synthetic stub - not a real app')
+          with tarfile.open(root/'devnet-proton-rtsp-v1.74-fresh-capture.tar(1).gz','w:gz') as t:
+              content=b'synthetic non-sensitive placeholder'
+              m=tarfile.TarInfo('test.txt')
+              m.size=len(content);t.addfile(m,io.BytesIO(content))
+          PY
+          PATH="$tmp/mockbin:$PATH" bash "$tool" "$tmp/files" > "$tmp/dryrun.txt"
+          grep -F 'DRY RUN ONLY' "$tmp/dryrun.txt"
+          grep -F 'devnet-sonicpad-auto-printer-v0.1.29.zip' "$tmp/dryrun.txt"
+          rm "$tmp/files/vr-stack-control-v0.6.131.zip"
+          set +e
+          PATH="$tmp/mockbin:$PATH" bash "$tool" "$tmp/files" > "$tmp/missing.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -eq 3
+          grep -F 'Nothing was uploaded' "$tmp/missing.log"
+          grep -q -- '--draft' "$tool"
+          if grep -q -- '--clobber' "$tool"; then
+            echo 'ERROR: --clobber present'; exit 1
+          fi
+          echo 'RELEASE_STAGE_V0.1.0_SAFE_DRYRUN_AND_FAIL_CLOSED_PASS'
