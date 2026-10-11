@@ -69,3 +69,27 @@ The false-green installed workflow was corrected by a separately versioned **art
 | VRChat Wrapper (private) | https://github.com/devnet82/vrchat-ytdlp-deno-wrapper/actions/runs/38140518433 | BLOCKED_ENVIRONMENT_STEAM_PREFIX | No |
 
 Each strict run saved `master-qa-strict-installed-gate-v0.1.1` as a workflow artifact and exited nonzero when application installation was not verified. The original older workflow conclusions remain preserved, but cannot be used as release acceptance evidence. All draft releases stay unpublished.
+
+
+## Consolidated Devnet Master QA v0.1.7 — final checked-in execution (11 October 2026)
+
+**IMPLEMENTED AND EXECUTED. Eight of eight applications remain BLOCKED.**
+The canonical versioned implementation is [qa/master-v0.1.7/README.md](../master-v0.1.7/README.md), with [candidate manifest](../master-v0.1.7/candidates.json), [shared evidence evaluator](../master-v0.1.7/gate.py) and [self-tests](../master-v0.1.7/test_gate.py). The gate consolidates v0.1.6's genuine CachyOS/KVM requirement and v0.1.1's strict no-false-green installed-app acceptance.
+
+**Latest final five exact-candidate QA runs, common immutable evaluator SHA-pinned to 9de8c6bb36ae47e8ea7d1681223dd4bd9ba53967:**
+- RGB Control v8.11: https://github.com/devnet82/devnet-rgb-control/actions/runs/38151856428 — 3 PASS / 1 FAIL / 14 NOT_TESTED; clean-install environment OpenRGB missing; release BLOCKED.
+- VR Stack v0.6.132: https://github.com/devnet82/vr-stack-control/actions/runs/38151859668 — 3 PASS / 1 FAIL / 14 NOT_TESTED; installed GUI binary missing; release BLOCKED.
+- WayVR Watch v0.1.34: https://github.com/devnet82/devnet-wayvr-watch-manager/actions/runs/38151866496 — 3 PASS / 1 FAIL / 14 NOT_TESTED; doctor.py missing; release BLOCKED.
+- ChatBox GTK v0.1.3.133: https://github.com/devnet82/devnet-chatbox/actions/runs/38151868862 — 3 PASS / 1 FAIL / 14 NOT_TESTED; GTK/media/privilege prerequisites missing; release BLOCKED.
+- VRChat Wrapper v0.1.4 (private): https://github.com/devnet82/vrchat-ytdlp-deno-wrapper/actions/runs/38151871270 — 3 PASS / 1 FAIL / 14 NOT_TESTED; isolated Steam Proton prefix missing; release BLOCKED.
+
+Each app-local run independently downloaded its original *unpublished* draft ZIP and its four pinned historical evidence artifacts, re-verified exact SHA-256 and checked guest/native/install/strict reports with the same versioned gate. All five strict release jobs intentionally exited nonzero and uploaded an app-specific report artifact. A red release gate is **correct** while any required check is not PASS.
+
+The other three candidates are registered with independent BLOCKED decisions:
+- Proton RTSP v1.77: local archive/secret scan and packaged regression previously passed, but native CachyOS lifecycle and hardware NOT_TESTED. Original candidate unuploaded.
+- Sonic Pad Auto Printer v0.1.29: original physical Sonic Pad device and USB/Klipper workflows NOT_TESTED by this programme.
+- CachyOS Repair v0.1.20: original installed CachyOS GRUB/BTRFS system rollback evidence from run 38083265759 was re-read and verified for **platform** recovery; full candidate lifecycle and hardware NOT_TESTED.
+
+**Central eight-app gate:** https://github.com/devnet82/devnet-cachyos-repair/actions/runs/38151828817 (passing self-tests, intentional release-blocking failure, eight-app JSON report saved). This central report does not automatically read the private repository's raw GitHub artifact; its missing locally imported app evidence is explicitly NOT_TESTED, while the five app-local gate reports are the detailed verified sources.
+
+**Safeguards:** All five GitHub draft releases remain unpublished and byte-exact SHA-256 digests were independently rechecked. No original archive or published version changed; only QA branches and workflow/test files changed. No command was executed on the user's real CachyOS installation. Actual user's bootloader: GRUB with BTRFS.
