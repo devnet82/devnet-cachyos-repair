@@ -1,0 +1,21 @@
+{
+  "qa_gate": "0.1.8",
+  "guest_os": "CachyOS",
+  "target": "Devnet Anycubic Camera v0.1.1",
+  "required_software": [
+    {
+      "name": "OrcaSlicer",
+      "required_version": "2.5.0-alpha",
+      "origin": "https://github.com/OrcaSlicer/OrcaSlicer/releases/tag/v2.5.0-alpha",
+      "install_method": "official AppImage inside guest",
+      "mandatory_checks": ["orca_archive", "orca_integrity", "orca_install", "orca_launch", "orca_gui"]
+    },
+    {
+      "name": "FFmpeg",
+      "origin": "CachyOS / Arch pacman repositories",
+      "install_method": "pacman inside guest",
+      "mandatory_checks": ["pkg", "ffmpeg"]
+    }
+  ],
+  "mandatory_full_release_checks": ["guest", "plugin", "hardware"]
+}
