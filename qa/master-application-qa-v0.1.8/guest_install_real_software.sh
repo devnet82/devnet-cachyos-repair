@@ -47,7 +47,19 @@ if [ "$QA_ORCA_INSTALL" = PASS ] && [ "$QA_PKG" = PASS ];then
     cp -f /mnt/devnet_anycubic_camera.py "$plugin_dir/devnet_anycubic_camera.py"
     sha256sum "$plugin_dir/devnet_anycubic_camera.py" > /tmp/devnet-staged-plugin.sha256
     echo "PLUGIN_STAGED_PATH=$plugin_dir/devnet_anycubic_camera.py"
-    # A file staged in the plugin directory is not yet proof that Orca loaded it.
+    # The local Plugins dialog normally writes this activation record.
+    # Use a disposable QA profile only; NEVER modify the user's live OrcaSlicer configuration.
+    cat > "$plugin_dir/.install_state.json" <<'PLUGIN_STATE'
+{
+  "capabilities": [{"Anycubic Camera": true}],
+  "enabled": true,
+  "installed_from": "local",
+  "installed_version": "0.1.1",
+  "plugin_name": "Devnet Anycubic Camera"
+}
+PLUGIN_STATE
+    echo "PLUGIN_ACTIVATION_RECORD_STAGED"
+    # Check actual loaded capabilities in Orca logs separately: pre-staging is NOT equivalent to live integration.
     timeout 75 "$APP" --appimage-extract-and-run >/tmp/devnet-orca-launch.log 2>&1 &
     app_pid=$!
     sleep 22
@@ -57,6 +69,12 @@ if [ "$QA_ORCA_INSTALL" = PASS ] && [ "$QA_PKG" = PASS ];then
       if grep -Eiq 'OrcaSlicer|Orca Slicer' /tmp/devnet-xwininfo.log;then QA_ORCA_GUI=PASS;else QA_ORCA_GUI=FAIL;fi
     fi
     if command -v xwd >/dev/null 2>&1;then xwd -root -silent -display :84 -out /mnt/devnet-orca-xvfb.xwd >/dev/null 2>&1 || true;fi
+    echo "ORCA_RUNTIME_LOGS_BEGIN"
+    if [ -d "$XDG_CONFIG_HOME/OrcaSlicer/log" ];then
+      grep -RiaE 'Devnet Anycubic Camera|Anycubic Camera|plugin.*(loaded|error|failed)' "$XDG_CONFIG_HOME/OrcaSlicer/log" | tail -n 60 > /tmp/devnet-orca-plugin-load.log || true
+      cat /tmp/devnet-orca-plugin-load.log || true
+    fi
+    echo "ORCA_RUNTIME_LOGS_END"
     kill "$app_pid" >/dev/null 2>&1 || true
   else QA_ORCA_LAUNCH=FAIL;QA_ORCA_GUI=FAIL;fi
   kill "$xvfb_pid" >/dev/null 2>&1 || true
@@ -68,7 +86,7 @@ import json,os,pathlib
 keys=("GUEST","PKG","FFMPEG","ORCA_ARCHIVE","ORCA_INTEGRITY","ORCA_INSTALL","ORCA_LAUNCH","ORCA_GUI","PLUGIN","HARDWARE")
 states={k.lower():os.environ["QA_"+k] for k in keys}
 report={"gate_version":"0.1.8","candidate":"Devnet Anycubic Camera v0.1.1","host_software":"OrcaSlicer v2.5.0-alpha","checks":states,"host_sha256":os.environ.get("QA_APP_SHA",""),"release_decision":"BLOCKED"}
-for path,key in (("/tmp/devnet-ffmpeg-version.txt","ffmpeg_version"),("/tmp/devnet-appimage-version.log","appimage_runtime"),("/tmp/devnet-orca-launch.log","orca_launch_tail"),("/tmp/devnet-xwininfo.log","window_tree_tail"),("/tmp/devnet-pacman-install.log","pacman_log_tail"),("/tmp/devnet-staged-plugin.sha256","staged_plugin_checksum")):
+for path,key in (("/tmp/devnet-ffmpeg-version.txt","ffmpeg_version"),("/tmp/devnet-appimage-version.log","appimage_runtime"),("/tmp/devnet-orca-launch.log","orca_launch_tail"),("/tmp/devnet-xwininfo.log","window_tree_tail"),("/tmp/devnet-pacman-install.log","pacman_log_tail"),("/tmp/devnet-staged-plugin.sha256","staged_plugin_checksum"),("/tmp/devnet-orca-plugin-load.log","plugin_load_log")):
  p=pathlib.Path(path)
  if p.exists():report[key]=p.read_text(errors="replace")[-7000:]
 pathlib.Path("/mnt/devnet-software-install-v0.1.8.json").write_text(json.dumps(report,indent=2)+"\n")
