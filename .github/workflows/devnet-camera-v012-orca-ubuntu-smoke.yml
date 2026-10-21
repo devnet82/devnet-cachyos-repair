@@ -1,0 +1,91 @@
+name: Devnet Camera v0.1.2 - real OrcaSlicer Ubuntu GUI plugin smoke
+on:
+  push:
+    branches: [qa/devnet-anycubic-camera-v0.1.2-cachyos-vm]
+    paths:
+      - .github/workflows/devnet-camera-v012-orca-ubuntu-smoke.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/devnet-camera-v012-orca-ubuntu-smoke.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  real-orcaslicer-ubuntu2404:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify frozen v0.1.2 plugin and install runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence /tmp/devnet-ubuntu-orca
+          src=qa/anycubic-camera-v0.1.8/candidate/devnet_anycubic_camera.py
+          printf '109e8c3f6005b1ffb0462a4e61d7d2e3c982018c3f7b8b600bb22f200bded92e  %s\n' "$src" | sha256sum -c -
+          python3 -m py_compile "$src"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libwebkit2gtk-4.1-0 libjavascriptcoregtk-4.1-0 ffmpeg xvfb xauth x11-utils x11-apps xdotool libfuse2t64 imagemagick
+          ffmpeg -version > evidence/ffmpeg-version.txt
+          dpkg-query -W 'libwebkit2gtk-4.1-0' 'libjavascriptcoregtk-4.1-0' > evidence/runtime-packages.txt
+      - name: Download and SHA-256 verify official OrcaSlicer Alpha
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          name='OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.5.0-alpha.AppImage'
+          url="https://github.com/OrcaSlicer/OrcaSlicer/releases/download/v2.5.0-alpha/$name"
+          if ! curl -fL --retry 3 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 300 "$url" -o "/tmp/devnet-ubuntu-orca/$name"; then
+            rm -f "/tmp/devnet-ubuntu-orca/$name"
+            gh release download v2.5.0-alpha --repo OrcaSlicer/OrcaSlicer --pattern "$name" --dir /tmp/devnet-ubuntu-orca
+          fi
+          printf '386a5ef38991a4fc32ae2e35ee4261bea43d983683ac675a2c2e2395ab2bc7bb  %s\n' "/tmp/devnet-ubuntu-orca/$name" | sha256sum -c - | tee evidence/official-orca-checksum.txt
+          mv "/tmp/devnet-ubuntu-orca/$name" /tmp/devnet-ubuntu-orca/OrcaSlicer.AppImage
+          chmod 755 /tmp/devnet-ubuntu-orca/OrcaSlicer.AppImage
+      - name: Stage plugin, activate and launch real GUI
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOME=/tmp/devnet-ubuntu-orca/home
+          export XDG_CONFIG_HOME="$HOME/.config"
+          dir="$XDG_CONFIG_HOME/OrcaSlicer/orca_plugins/devnet-anycubic-camera"
+          mkdir -p "$dir"
+          cp qa/anycubic-camera-v0.1.8/candidate/devnet_anycubic_camera.py "$dir/devnet_anycubic_camera.py"
+          printf '109e8c3f6005b1ffb0462a4e61d7d2e3c982018c3f7b8b600bb22f200bded92e  %s\n' "$dir/devnet_anycubic_camera.py" | sha256sum -c - | tee evidence/staged-plugin-checksum.txt
+          cat > "$dir/.install_state.json" <<'JSON'
+          {"installed_from":"local","installed_version":"0.1.2","plugin_name":"Devnet Anycubic Camera","enabled":true,"capabilities":[],"permissions":{"fs_read":[],"fs_readwrite":[],"network_http":[],"network_socket":[],"process":[],"threading":[],"events":[]}}
+          JSON
+          Xvfb :84 -screen 0 1280x900x24 -nolisten tcp > evidence/xvfb.log 2>&1 &
+          xvfb_pid=$!
+          trap 'kill "$xvfb_pid" 2>/dev/null || true' EXIT
+          sleep 4
+          export DISPLAY=:84 QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1
+          /tmp/devnet-ubuntu-orca/OrcaSlicer.AppImage --appimage-extract-and-run > evidence/orca-launch.log 2>&1 &
+          app_pid=$!
+          sleep 45
+          xwininfo -root -tree > evidence/xwininfo.log || true
+          ps -eo pid,comm,args | grep -Ei 'orca|slicer' | grep -v grep > evidence/orca-processes.log || true
+          xwd -root -silent -out /tmp/devnet-ubuntu-orca/screen.xwd >/dev/null 2>&1 || true
+          convert /tmp/devnet-ubuntu-orca/screen.xwd evidence/orca-screenshot.png 2>/dev/null || true
+          if [ -d "$XDG_CONFIG_HOME/OrcaSlicer/log" ]; then
+            cp -R "$XDG_CONFIG_HOME/OrcaSlicer/log" evidence/orca-runtime-logs
+          fi
+          echo "ORCA_GUI_WINDOWS:"
+          tail -n 35 evidence/xwininfo.log
+          echo "PLUGIN_LOG_HITS:"
+          grep -RinE 'Devnet Anycubic|Anycubic Camera|PluginLoader|plugin.*(load|error)' evidence/orca-runtime-logs 2>/dev/null | tail -n 80 || true
+          grep -Eiq 'OrcaSlicer|Orca Slicer' evidence/xwininfo.log || { echo 'FAIL: OrcaSlicer GUI window not detected'; exit 1; }
+          echo 'REAL_ORCASLICER_WINDOW_DETECTED'
+          echo 'RELEASE_BLOCKED: Plugin Pages tab and physical printer camera remain unverified'
+          kill "$app_pid" >/dev/null 2>&1 || true
+      - name: Preserve genuine app runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-camera-v012-orca-ubuntu-real-gui
+          path: evidence/
+          retention-days: 30
