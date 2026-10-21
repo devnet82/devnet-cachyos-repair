@@ -12,6 +12,13 @@ grep -iq cachyos /etc/os-release
 test "$(sha256sum /mnt/OrcaSlicer.AppImage | awk '{print $1}')" = "386a5ef38991a4fc32ae2e35ee4261bea43d983683ac675a2c2e2395ab2bc7bb"
 test "$(sha256sum /mnt/devnet_anycubic_camera.py | awk '{print $1}')" = "574e217288317b8a169a34135887a8a06b7c0b214e82e15c985c918304cb5daf"
 echo DEVNET_ORCA_BIN_AND_PLUGIN_HASH_PASS
+# OrcaSlicer 2.5.0 Alpha's AppImage needs WebKitGTK 4.1 host libraries on Arch/CachyOS.
+if ! ldconfig -p | grep -q 'libwebkit2gtk-4.1.so.0'; then
+  echo DEVNET_ORCA_INSTALLING_REQUIRED_WEBKITGTK41
+  timeout 300 pacman -Sy --noconfirm --needed webkit2gtk-4.1
+fi
+ldconfig -p | grep -E 'libwebkit2gtk-4.1.so.0|libjavascriptcoregtk-4.1.so.0'
+echo DEVNET_ORCA_HOST_WEBKITGTK41_PRESENT
 mkdir -p /opt/devnet-orca-slicer-v2.5.0-alpha
 install -m 755 /mnt/OrcaSlicer.AppImage /opt/devnet-orca-slicer-v2.5.0-alpha/OrcaSlicer.AppImage
 cd /opt/devnet-orca-slicer-v2.5.0-alpha
