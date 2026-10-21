@@ -28,7 +28,7 @@ jobs:
           printf '109e8c3f6005b1ffb0462a4e61d7d2e3c982018c3f7b8b600bb22f200bded92e  %s\n' "$src" | sha256sum -c -
           python3 -m py_compile "$src"
           sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends libwebkit2gtk-4.1-0 libjavascriptcoregtk-4.1-0 ffmpeg xvfb xauth x11-utils x11-apps xdotool libfuse2t64 imagemagick
+          sudo apt-get install -y -qq --no-install-recommends libwebkit2gtk-4.1-0 libjavascriptcoregtk-4.1-0 ffmpeg xvfb xauth x11-utils x11-apps xdotool libfuse2t64 imagemagick libopengl0 libgl1 libegl1 libxkbcommon0 libxcb-cursor0
           ffmpeg -version > evidence/ffmpeg-version.txt
           dpkg-query -W 'libwebkit2gtk-4.1-0' 'libjavascriptcoregtk-4.1-0' > evidence/runtime-packages.txt
       - name: Download and SHA-256 verify official OrcaSlicer Alpha
