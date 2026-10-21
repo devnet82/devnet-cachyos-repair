@@ -1,0 +1,182 @@
+name: Devnet Camera v0.1.2 - real OrcaSlicer Ubuntu GUI plugin smoke
+on:
+  push:
+    branches: [qa/devnet-anycubic-camera-v0.1.2-cachyos-vm]
+    paths:
+      - .github/workflows/devnet-camera-v012-orca-ubuntu-smoke.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/devnet-camera-v012-orca-ubuntu-smoke.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  real-orcaslicer-ubuntu2404:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify frozen v0.1.2 plugin and install runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence /tmp/devnet-ubuntu-orca
+          src=qa/anycubic-camera-v0.1.8/candidate/devnet_anycubic_camera.py
+          printf '109e8c3f6005b1ffb0462a4e61d7d2e3c982018c3f7b8b600bb22f200bded92e  %s\n' "$src" | sha256sum -c -
+          python3 -m py_compile "$src"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libwebkit2gtk-4.1-0 libjavascriptcoregtk-4.1-0 ffmpeg xvfb xauth x11-utils x11-apps xdotool libfuse2t64 imagemagick libopengl0 libgl1 libegl1 libxkbcommon0 libxcb-cursor0 openbox
+          ffmpeg -version > evidence/ffmpeg-version.txt
+          dpkg-query -W 'libwebkit2gtk-4.1-0' 'libjavascriptcoregtk-4.1-0' > evidence/runtime-packages.txt
+      - name: Download and SHA-256 verify official OrcaSlicer Alpha
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          name='OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.5.0-alpha.AppImage'
+          url="https://github.com/OrcaSlicer/OrcaSlicer/releases/download/v2.5.0-alpha/$name"
+          if ! curl -fL --retry 3 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 300 "$url" -o "/tmp/devnet-ubuntu-orca/$name"; then
+            rm -f "/tmp/devnet-ubuntu-orca/$name"
+            gh release download v2.5.0-alpha --repo OrcaSlicer/OrcaSlicer --pattern "$name" --dir /tmp/devnet-ubuntu-orca
+          fi
+          printf '386a5ef38991a4fc32ae2e35ee4261bea43d983683ac675a2c2e2395ab2bc7bb  %s\n' "/tmp/devnet-ubuntu-orca/$name" | sha256sum -c - | tee evidence/official-orca-checksum.txt
+          mv "/tmp/devnet-ubuntu-orca/$name" /tmp/devnet-ubuntu-orca/OrcaSlicer.AppImage
+          chmod 755 /tmp/devnet-ubuntu-orca/OrcaSlicer.AppImage
+      - name: Stage plugin, activate and launch real GUI
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOME=/tmp/devnet-ubuntu-orca/home
+          export XDG_CONFIG_HOME="$HOME/.config"
+          dir="$XDG_CONFIG_HOME/OrcaSlicer/orca_plugins/devnet-anycubic-camera"
+          mkdir -p "$dir"
+          # Bypass Orca's first-run Setup Wizard ONLY in this disposable test profile.
+          # Orca AppConfig.cpp uses JSON OrcaSlicer.conf and [firstguide].finish.
+          cat > "$XDG_CONFIG_HOME/OrcaSlicer/OrcaSlicer.conf" <<'CONFIGJSON'
+          {"firstguide":{"finish":true},"app":{"region":"Europe","language":"en_GB"}}
+          CONFIGJSON
+          python3 -m json.tool "$XDG_CONFIG_HOME/OrcaSlicer/OrcaSlicer.conf" >/dev/null
+          cp qa/anycubic-camera-v0.1.8/candidate/devnet_anycubic_camera.py "$dir/devnet_anycubic_camera.py"
+          printf '109e8c3f6005b1ffb0462a4e61d7d2e3c982018c3f7b8b600bb22f200bded92e  %s\n' "$dir/devnet_anycubic_camera.py" | sha256sum -c - | tee evidence/staged-plugin-checksum.txt
+          cat > "$dir/.install_state.json" <<'JSON'
+          {"installed_from":"local","installed_version":"0.1.2","plugin_name":"Devnet Anycubic Camera","enabled":true,"capabilities":[],"permissions":{"fs_read":[],"fs_readwrite":[],"network_http":[],"network_socket":["(\u0027127.0.0.1\u0027, 0)"],"process":["/usr/bin/ffmpeg"],"threading":["thread"],"events":["Socket:socket.__new__"]}}
+          JSON
+          Xvfb :84 -screen 0 1280x900x24 -nolisten tcp > evidence/xvfb.log 2>&1 &
+          xvfb_pid=$!
+          trap 'kill "$xvfb_pid" 2>/dev/null || true' EXIT
+          sleep 4
+          DISPLAY=:84 openbox > evidence/openbox.log 2>&1 &
+          sleep 2
+          export DISPLAY=:84 QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt SSL_CERT_DIR=/etc/ssl/certs
+          /tmp/devnet-ubuntu-orca/OrcaSlicer.AppImage --appimage-extract-and-run > evidence/orca-launch.log 2>&1 &
+          app_pid=$!
+          sleep 45
+          xwininfo -root -tree > evidence/xwininfo.log || true
+          ps -eo pid,comm,args | grep -Ei 'orca|slicer' | grep -v grep > evidence/orca-processes.log || true
+          xwd -root -silent -out /tmp/devnet-ubuntu-orca/screen.xwd >/dev/null 2>&1 || true
+          convert /tmp/devnet-ubuntu-orca/screen.xwd evidence/orca-screenshot.png 2>/dev/null || true
+          # Select the actual Pages tab in the deterministically sized Xvfb desktop.
+          # Capture separately: plugin can load successfully yet render an empty webview.
+          # Choose the real camera tab only after verifying Setup Wizard is absent.
+          # Orca upstream scripts/CAD/start-headless-gui.sh documents that closing
+          # the first-run wizard with windowclose SIGSEGVs; instead click its
+          # validated Openbox titlebar close control.
+          for attempt in 1 2 3; do
+            win="$(xdotool search --name 'Setup Wizard' 2>/dev/null | head -1 || true)"
+            if [ -z "$win" ];then break;fi
+            eval "$(xdotool getwindowgeometry --shell "$win" 2>/dev/null || true)"
+            if [[ "${X:-}" =~ ^[0-9]+$ ]] && [[ "${Y:-}" =~ ^[0-9]+$ ]] && [[ "${WIDTH:-}" =~ ^[0-9]+$ ]] && [[ "${HEIGHT:-}" =~ ^[0-9]+$ ]];then
+              cx=$((X+WIDTH-11))
+              cy=$((Y-31))
+              if (( cx > 0 && cx < 1280 && cy > 0 && cy < 900 ));then
+                echo "QA_CLOSE_WIZARD_OPENBOX at $cx $cy"
+                xdotool mousemove "$cx" "$cy" click 1
+                sleep 2
+              else echo 'FAIL: invalid wizard close coordinates';exit 1;fi
+            else echo 'FAIL: unverified wizard geometry';exit 1;fi
+          done
+          xwininfo -root -tree > evidence/post-close-window-tree.log || true
+          if grep -q 'Setup Wizard' evidence/post-close-window-tree.log;then
+            echo 'FAIL: Setup Wizard still blocking camera tab';exit 1
+          fi
+          main="$(xdotool search --name Untitled | head -1 || true)"
+          if [ -z "$main" ];then echo 'FAIL main window disappeared';exit 1;fi
+          xdotool windowactivate "$main" || true
+          xdotool mousemove 825 104 click 1
+          echo QA_ACTUAL_CAMERA_TAB_CLICKED
+          sleep 8
+          xwininfo -root -tree > evidence/camera-tab-windows.log || true
+          xwd -root -silent -out /tmp/devnet-ubuntu-orca/camera-tab.xwd >/dev/null 2>&1 || true
+          convert /tmp/devnet-ubuntu-orca/camera-tab.xwd evidence/orca-anycubic-camera-tab.png 2>/dev/null || true
+          # E2E QA uses a disposable local synthetic FLV server, never the user's printer.
+          sudo ip addr add 192.168.77.77/32 dev lo || true
+          ip addr show lo | grep -F '192.168.77.77/32'
+          ffmpeg -hide_banner -nostdin -loglevel error -re -f lavfi -i testsrc=size=640x360:rate=8 -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 16 -f flv -listen 1 http://192.168.77.77:18088/flv > evidence/ffmpeg-simulator.log 2>&1 &
+          camera_pid=$!
+          sleep 4
+          if ! kill -0 "$camera_pid" 2>/dev/null;then
+            echo 'FAIL: synthetic FLV source failed to start'
+            cat evidence/ffmpeg-simulator.log
+            exit 1
+          fi
+          xdotool mousemove 220 266 click 1
+          xdotool type --clearmodifiers '192.168.77.77'
+          xdotool mousemove 425 266 click 1
+          # Exercise the REAL Orca permission approval path in this disposable QA VM.
+          # No such approval is assumed on the user's computer.
+          for tick in $(seq 1 16);do
+            prompt="$(xdotool search --name 'Plugin permission request' 2>/dev/null | head -1 || true)"
+            if [ -n "$prompt" ];then
+              echo "QA_APPROVE_TEST_ONLY_PERMISSION_PROMPT tick=$tick"
+              xdotool windowactivate "$prompt" >/dev/null 2>&1 || true
+              xdotool key --clearmodifiers alt+y || true
+              sleep 1
+              if xdotool search --name 'Plugin permission request' >/dev/null 2>&1;then
+                xdotool key --clearmodifiers Return || true
+              fi
+            fi
+            sleep 2
+          done
+          cp "$dir/.install_state.json" evidence/permissions-after-simulation.json
+          xwd -root -silent -out /tmp/devnet-ubuntu-orca/camera-live.xwd >/dev/null 2>&1 || true
+          convert /tmp/devnet-ubuntu-orca/camera-live.xwd evidence/orca-anycubic-camera-simulated-live.png 2>/dev/null || true
+          echo 'QA_SIMULATED_CONNECT_CLICKED'
+          echo 'FFMPEG_SOURCES:'
+          ps -eo pid,cmd | grep -E '(192.168.77.77|image2pipe)' | grep -v grep || true
+          echo 'CAMERA_SIMULATOR_OUTPUT:'
+          tail -n 40 evidence/ffmpeg-simulator.log || true
+          kill "$camera_pid" 2>/dev/null || true
+          if [ -d "$XDG_CONFIG_HOME/OrcaSlicer/log" ]; then
+            cp -R "$XDG_CONFIG_HOME/OrcaSlicer/log" evidence/orca-runtime-logs
+          fi
+          echo "ORCA_GUI_WINDOWS:"
+          tail -n 35 evidence/xwininfo.log
+          echo "PLUGIN_LOG_HITS:"
+          grep -RinE 'Devnet Anycubic|Anycubic Camera|PluginLoader|plugin.*(load|error)' evidence/orca-runtime-logs 2>/dev/null | tail -n 80 || true
+          python3 - <<'PY'
+          import re
+          s=open('evidence/xwininfo.log').read()
+          dims=[]
+          for line in s.splitlines():
+              if 'OrcaSlicer' not in line and 'Orca Slicer' not in line:
+                  continue
+              m=re.search(r'(\d+)x(\d+)\+\d+\+\d+',line)
+              if m:dims.append((int(m.group(1)),int(m.group(2))))
+          print('ORCA_WINDOW_DIMENSIONS',dims)
+          assert any(w>=900 and h>=600 for w,h in dims), 'FAIL: no actual main OrcaSlicer window (only a startup dialog or splash)'
+          PY
+          echo 'REAL_ORCASLICER_WINDOW_DETECTED'
+          echo 'RELEASE_BLOCKED: Plugin Pages tab and physical printer camera remain unverified'
+          kill "$app_pid" >/dev/null 2>&1 || true
+      - name: Preserve genuine app runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-camera-v012-orca-ubuntu-real-gui
+          path: evidence/
+          retention-days: 30

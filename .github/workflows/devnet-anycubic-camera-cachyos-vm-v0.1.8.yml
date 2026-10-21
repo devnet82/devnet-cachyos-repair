@@ -1,0 +1,148 @@
+name: Devnet Anycubic Camera v0.1.2 - CachyOS VM QA v0.1.8
+on:
+  push:
+    branches:
+      - qa/devnet-anycubic-camera-v0.1.2-cachyos-vm
+    paths:
+      - qa/anycubic-camera-v0.1.8/**
+      - .github/workflows/devnet-anycubic-camera-cachyos-vm-v0.1.8.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - qa/anycubic-camera-v0.1.8/**
+      - .github/workflows/devnet-anycubic-camera-cachyos-vm-v0.1.8.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  genuine-cachyos-q35:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify frozen candidate and guest test script
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=qa/anycubic-camera-v0.1.8/candidate/devnet_anycubic_camera.py
+          echo '109e8c3f6005b1ffb0462a4e61d7d2e3c982018c3f7b8b600bb22f200bded92e  ' "$src" | sed 's/  / /' >/dev/null
+          printf '109e8c3f6005b1ffb0462a4e61d7d2e3c982018c3f7b8b600bb22f200bded92e  %s\n' "$src" | sha256sum -c -
+          python3 -m py_compile "$src" qa/anycubic-camera-v0.1.8/guest_camera_qa_012.py
+          mkdir -p evidence
+      - name: Install QEMU KVM and transfer disk tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-system-x86 qemu-utils mtools dosfstools
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+          echo REAL_QEMU_KVM_AVAILABLE
+      - name: Fetch and authenticate genuine CachyOS ISO
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/devnet-camera-vm
+          base='https://iso.cachyos.org/desktop/260809'
+          name='cachyos-desktop-linux-260809.iso'
+          curl -fsSL --retry 3 --retry-all-errors --connect-timeout 15 --max-time 1200 "$base/$name.sha256" -o "/tmp/devnet-camera-vm/$name.sha256"
+          curl -fsSL --retry 3 --retry-all-errors --connect-timeout 15 --max-time 1200 "$base/$name" -o "/tmp/devnet-camera-vm/$name"
+          (cd /tmp/devnet-camera-vm && sha256sum -c "$name.sha256") | tee evidence/iso-verify.txt
+          grep -F "$name: OK" evidence/iso-verify.txt
+      - name: Prepare disposable guest test drive
+        shell: bash
+        run: |
+          set -euo pipefail
+          truncate -s 96M /tmp/devnet-anycubic-guest.img
+          mkfs.vfat -F 32 -n DEVNETQA /tmp/devnet-anycubic-guest.img
+          mcopy -i /tmp/devnet-anycubic-guest.img qa/anycubic-camera-v0.1.8/candidate/devnet_anycubic_camera.py ::/devnet_anycubic_camera.py
+          mcopy -i /tmp/devnet-anycubic-guest.img qa/anycubic-camera-v0.1.8/guest_camera_qa_012.py ::/guest_camera_qa.py
+          cat >/tmp/devnet-camera-guest-run.sh <<'GUEST'
+          #!/usr/bin/env bash
+          set -u
+          exec >/mnt/devnet-guest-camera-console.log 2>&1
+          echo DEVNET_CACHYOS_CAMERA_GUEST_STARTED
+          cat /etc/os-release
+          uname -r
+          python3 /mnt/guest_camera_qa.py
+          rc=$?
+          echo GUEST_QA_SCRIPT_RC=$rc
+          sync
+          GUEST
+          mcopy -i /tmp/devnet-anycubic-guest.img /tmp/devnet-camera-guest-run.sh ::/run.sh
+      - name: Boot genuine CachyOS and run camera guest QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          qemu-system-x86_64 -machine q35,accel=kvm -cpu host -m 4096 -smp 2 \
+            -drive file=/tmp/devnet-camera-vm/cachyos-desktop-linux-260809.iso,media=cdrom,if=ide \
+            -drive file=/tmp/devnet-anycubic-guest.img,format=raw,if=virtio \
+            -boot order=d -vga std -display none \
+            -serial file:evidence/serial.log \
+            -monitor unix:/tmp/devnet-camera-qemu-monitor.sock,server=on,wait=off \
+            -daemonize -pidfile /tmp/devnet-camera-qemu.pid
+          sleep 120
+          python3 - <<'PY'
+          import os,socket,time
+          s=socket.socket(socket.AF_UNIX);s.settimeout(10)
+          s.connect('/tmp/devnet-camera-qemu-monitor.sock')
+          try:
+              try:s.recv(4096)
+              except socket.timeout:pass
+              def cmd(line):
+                  s.sendall((line+'\n').encode())
+                  time.sleep(.2)
+                  try:s.recv(8192)
+                  except socket.timeout:pass
+              cmd('screendump '+os.path.abspath('evidence/cachyos-boot.ppm'))
+              cmd('sendkey ctrl-alt-f3')
+              time.sleep(3)
+              def sendline(line):
+                  mapping={' ':'spc','/':'slash','.':'dot','-':'minus'}
+                  for c in line: cmd('sendkey '+mapping.get(c,c))
+                  cmd('sendkey ret')
+              sendline('root')
+              time.sleep(2)
+              sendline('mount -t vfat /dev/vda /mnt')
+              time.sleep(3)
+              sendline('bash /mnt/run.sh')
+              print('DEVNET_GUEST_TEST_DISPATCHED')
+          finally:s.close()
+          PY
+          found=0
+          for attempt in $(seq 1 90); do
+            if mcopy -o -i /tmp/devnet-anycubic-guest.img ::/devnet-guest-camera-qa-012.json evidence/devnet-guest-camera-qa-012.json >/dev/null 2>&1; then
+              if python3 -m json.tool evidence/devnet-guest-camera-qa-012.json >/dev/null 2>&1; then
+                found=1; echo DEVNET_GUEST_REPORT_CAPTURED; break
+              fi
+            fi
+            sleep 10
+          done
+          mcopy -o -i /tmp/devnet-anycubic-guest.img ::/devnet-guest-camera-console.log evidence/guest-console.log || true
+          if [ "$found" != 1 ]; then
+            echo 'BLOCKED: genuine guest report missing' | tee evidence/status.txt
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/devnet-guest-camera-qa-012.json'))
+          print("Guest OS:",d["os_release"][:200])
+          print("Plugin:",d["candidate"])
+          print("Tests PASS:",d["passed"],"FAIL:",d["failed"])
+          print("Outstanding mandatory checks:",len(d["blocked"]))
+          assert "cachyos" in d["os_release"].lower(),"not real CachyOS guest"
+          assert d["failed"] == 0,"Fixed candidate still has regression failures"
+          assert d["decision"]=="BLOCKED","unexpected release approval"
+          print("EXPECTED FAIL-CLOSED GATE - RELEASE BLOCKED")
+          PY
+      - name: Preserve VM QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-anycubic-camera-v0.1.2-cachyos-vm-qa-v0.1.8
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: warn
