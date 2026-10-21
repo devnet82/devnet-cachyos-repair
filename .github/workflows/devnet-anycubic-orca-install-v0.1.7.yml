@@ -62,7 +62,7 @@ jobs:
           mkfs.vfat -F 32 -n DEVNETQA /tmp/devnet-orca-guest.img
           mcopy -i /tmp/devnet-orca-guest.img /tmp/devnet-orca-vm/OrcaSlicer.AppImage ::/OrcaSlicer.AppImage
           mcopy -i /tmp/devnet-orca-guest.img qa/anycubic-camera-v0.1.7/candidate/devnet_anycubic_camera.py ::/devnet_anycubic_camera.py
-          mcopy -i /tmp/devnet-orca-guest.img qa/anycubic-camera-v0.1.7/guest_install_orca.sh ::/guest_install_orca.sh
+          mcopy -i /tmp/devnet-orca-guest.img qa/anycubic-camera-v0.1.7/guest_install_orca.sh ::/run.sh
           mdir -i /tmp/devnet-orca-guest.img ::/
       - name: Boot true CachyOS desktop and install plus launch real OrcaSlicer
         shell: bash
@@ -99,18 +99,18 @@ jobs:
               time.sleep(2)
               sendline('mount -t vfat /dev/vda /mnt')
               time.sleep(3)
-              sendline('bash /mnt/guest_install_orca.sh')
+              sendline('bash /mnt/run.sh')
               print('REAL_ORCA_INSTALL_AND_LAUNCH_SENT_TO_CACHYOS')
           finally:s.close()
           PY
           found=0
-          for attempt in $(seq 1 90); do
+          for attempt in $(seq 1 35); do
             if mcopy -o -i /tmp/devnet-orca-guest.img ::/devnet-orca-install.json evidence/devnet-orca-install.json >/dev/null 2>&1; then
               if python3 -m json.tool evidence/devnet-orca-install.json >/dev/null 2>&1; then
                 found=1; echo REAL_ORCA_GUEST_INSTALL_REPORT_CAPTURED; break
               fi
             fi
-            sleep 8
+            sleep 6
           done
           for f in devnet-orca-install-console.log devnet-orca-GUI.log devnet-orca-extract.log; do
             mcopy -o -i /tmp/devnet-orca-guest.img "::/$f" "evidence/$f" || true
