@@ -11,8 +11,10 @@ echo "DEVNET_SOFTWARE_INSTALL_V018_GUEST_START"
 cat /etc/os-release; uname -r
 if grep -qi 'cachyos' /etc/os-release && command -v pacman >/dev/null 2>&1;then QA_GUEST=PASS;else QA_GUEST=FAIL;fi
 mkdir -p /opt/devnet-qa /tmp/devnet-qa-home
+# Fully sync aged live ISO before installing dependencies: avoid partial upgrade / FFmpeg ABI mismatch.
+echo "VM_DEPS_FULL_SYSTEM_UPGRADE"
 echo "Installing actual guest packages, not just host-side dependencies"
-if timeout 220 pacman -Sy --noconfirm --needed ffmpeg xorg-server-xvfb xorg-xauth xorg-xwininfo xorg-xwd >/tmp/devnet-pacman-install.log 2>&1;then
+if timeout 220 pacman -Syu --noconfirm --needed ffmpeg libbluray webkit2gtk-4.1 xorg-server-xvfb xorg-xauth xorg-xwininfo xorg-xwd >/tmp/devnet-pacman-install.log 2>&1;then
   QA_PKG=PASS
 else
   QA_PKG=FAIL
@@ -39,6 +41,13 @@ if [ "$QA_ORCA_INSTALL" = PASS ] && [ "$QA_PKG" = PASS ];then
   if kill -0 "$xvfb_pid" 2>/dev/null;then
     export DISPLAY=:84 HOME=/tmp/devnet-qa-home XDG_CONFIG_HOME=/tmp/devnet-qa-home/.config
     export QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1
+    # Stage the exact plugin as a local OrcaSlicer plugin in the disposable guest profile.
+    plugin_dir="$XDG_CONFIG_HOME/OrcaSlicer/orca_plugins/devnet-anycubic-camera"
+    mkdir -p "$plugin_dir"
+    cp -f /mnt/devnet_anycubic_camera.py "$plugin_dir/devnet_anycubic_camera.py"
+    sha256sum "$plugin_dir/devnet_anycubic_camera.py" > /tmp/devnet-staged-plugin.sha256
+    echo "PLUGIN_STAGED_PATH=$plugin_dir/devnet_anycubic_camera.py"
+    # A file staged in the plugin directory is not yet proof that Orca loaded it.
     timeout 75 "$APP" --appimage-extract-and-run >/tmp/devnet-orca-launch.log 2>&1 &
     app_pid=$!
     sleep 22
@@ -59,7 +68,7 @@ import json,os,pathlib
 keys=("GUEST","PKG","FFMPEG","ORCA_ARCHIVE","ORCA_INTEGRITY","ORCA_INSTALL","ORCA_LAUNCH","ORCA_GUI","PLUGIN","HARDWARE")
 states={k.lower():os.environ["QA_"+k] for k in keys}
 report={"gate_version":"0.1.8","candidate":"Devnet Anycubic Camera v0.1.1","host_software":"OrcaSlicer v2.5.0-alpha","checks":states,"host_sha256":os.environ.get("QA_APP_SHA",""),"release_decision":"BLOCKED"}
-for path,key in (("/tmp/devnet-ffmpeg-version.txt","ffmpeg_version"),("/tmp/devnet-appimage-version.log","appimage_runtime"),("/tmp/devnet-orca-launch.log","orca_launch_tail"),("/tmp/devnet-xwininfo.log","window_tree_tail"),("/tmp/devnet-pacman-install.log","pacman_log_tail")):
+for path,key in (("/tmp/devnet-ffmpeg-version.txt","ffmpeg_version"),("/tmp/devnet-appimage-version.log","appimage_runtime"),("/tmp/devnet-orca-launch.log","orca_launch_tail"),("/tmp/devnet-xwininfo.log","window_tree_tail"),("/tmp/devnet-pacman-install.log","pacman_log_tail"),("/tmp/devnet-staged-plugin.sha256","staged_plugin_checksum")):
  p=pathlib.Path(path)
  if p.exists():report[key]=p.read_text(errors="replace")[-7000:]
 pathlib.Path("/mnt/devnet-software-install-v0.1.8.json").write_text(json.dumps(report,indent=2)+"\n")
