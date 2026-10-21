@@ -104,7 +104,11 @@ jobs:
           if grep -q 'Setup Wizard' evidence/post-close-window-tree.log;then
             echo 'FAIL: Setup Wizard still blocking camera tab';exit 1
           fi
-          main="$(xdotool search --name '^Untitled
+          main="$(xdotool search --name Untitled | head -1 || true)"
+          if [ -z "$main" ];then echo 'FAIL main window disappeared';exit 1;fi
+          xdotool windowactivate "$main" || true
+          xdotool mousemove 825 104 click 1
+          echo QA_ACTUAL_CAMERA_TAB_CLICKED
           sleep 8
           xwininfo -root -tree > evidence/camera-tab-windows.log || true
           xwd -root -silent -out /tmp/devnet-ubuntu-orca/camera-tab.xwd >/dev/null 2>&1 || true
