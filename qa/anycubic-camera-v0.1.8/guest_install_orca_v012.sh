@@ -12,9 +12,9 @@ cat /etc/os-release; uname -r
 if grep -qi 'cachyos' /etc/os-release && command -v pacman >/dev/null 2>&1;then QA_GUEST=PASS;else QA_GUEST=FAIL;fi
 mkdir -p /opt/devnet-qa /tmp/devnet-qa-home
 # Fully sync aged live ISO before installing dependencies: avoid partial upgrade / FFmpeg ABI mismatch.
-echo "VM_DEPS_FULL_SYSTEM_UPGRADE"
-echo "Installing actual guest packages, not just host-side dependencies"
-if timeout 220 pacman -Syu --noconfirm --needed ffmpeg libbluray webkit2gtk-4.1 xorg-server-xvfb xorg-xauth xorg-xwininfo xorg-xwd >/tmp/devnet-pacman-install.log 2>&1;then
+echo "VM_DEPS_EPHEMERAL_TARGETED_INSTALL"
+echo "Installing real guest packages into a disposable live ISO. No production host changes."
+if timeout 220 pacman -Sy --noconfirm ffmpeg libbluray webkit2gtk-4.1 xorg-server-xvfb xorg-xauth xorg-xwininfo xorg-xwd >/tmp/devnet-pacman-install.log 2>&1;then
   QA_PKG=PASS
 else
   QA_PKG=FAIL
@@ -40,7 +40,7 @@ if [ "$QA_ORCA_INSTALL" = PASS ] && [ "$QA_PKG" = PASS ];then
   sleep 3
   if kill -0 "$xvfb_pid" 2>/dev/null;then
     export DISPLAY=:84 HOME=/tmp/devnet-qa-home XDG_CONFIG_HOME=/tmp/devnet-qa-home/.config
-    export QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1
+    export QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
     # Stage the exact plugin as a local OrcaSlicer plugin in the disposable guest profile.
     plugin_dir="$XDG_CONFIG_HOME/OrcaSlicer/orca_plugins/devnet-anycubic-camera"
     mkdir -p "$plugin_dir"
