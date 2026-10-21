@@ -6,6 +6,12 @@ on:
     paths:
       - qa/anycubic-camera-v0.1.7/**
       - .github/workflows/devnet-anycubic-camera-cachyos-vm-v0.1.7.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - qa/anycubic-camera-v0.1.7/**
+      - .github/workflows/devnet-anycubic-camera-cachyos-vm-v0.1.7.yml
   workflow_dispatch: {}
 permissions:
   contents: read
