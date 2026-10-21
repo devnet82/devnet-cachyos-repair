@@ -100,7 +100,7 @@ try:
         with b.condition:
             b.generation=1;b.state="streaming";b.frame=sample;b.frame_id=1;b.condition.notify_all()
         with urllib.request.urlopen(base+"/feed/"+b.token,timeout=6) as resp:
-            chunk=resp.read(350)
+            chunk=resp.read(70)
         require(b"Content-Type: image/jpeg" in chunk,"MJPEG missing")
         b.close()
     test("Real loopback HTTP authentication and MJPEG delivery",mjpeg)
