@@ -14,7 +14,7 @@ mkdir -p /opt/devnet-qa /tmp/devnet-qa-home
 # Fully sync aged live ISO before installing dependencies: avoid partial upgrade / FFmpeg ABI mismatch.
 echo "VM_DEPS_EPHEMERAL_TARGETED_INSTALL"
 echo "Installing real guest packages into a disposable live ISO. No production host changes."
-if timeout 220 pacman -Sy --noconfirm ffmpeg libbluray webkit2gtk-4.1 xorg-server-xvfb xorg-xauth xorg-xwininfo xorg-xwd >/tmp/devnet-pacman-install.log 2>&1;then
+if timeout 220 pacman -Sy --noconfirm ffmpeg libbluray webkit2gtk-4.1 gstreamer gst-plugins-base-libs gst-plugins-base gst-plugins-good xorg-server-xvfb xorg-xauth xorg-xwininfo xorg-xwd >/tmp/devnet-pacman-install.log 2>&1;then
   QA_PKG=PASS
 else
   QA_PKG=FAIL
