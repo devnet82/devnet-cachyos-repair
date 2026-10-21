@@ -28,7 +28,7 @@ jobs:
           printf '109e8c3f6005b1ffb0462a4e61d7d2e3c982018c3f7b8b600bb22f200bded92e  %s\n' "$src" | sha256sum -c -
           python3 -m py_compile "$src"
           sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends libwebkit2gtk-4.1-0 libjavascriptcoregtk-4.1-0 ffmpeg xvfb xauth x11-utils x11-apps xdotool libfuse2t64 imagemagick libopengl0 libgl1 libegl1 libxkbcommon0 libxcb-cursor0
+          sudo apt-get install -y -qq --no-install-recommends libwebkit2gtk-4.1-0 libjavascriptcoregtk-4.1-0 ffmpeg xvfb xauth x11-utils x11-apps xdotool libfuse2t64 imagemagick libopengl0 libgl1 libegl1 libxkbcommon0 libxcb-cursor0 openbox
           ffmpeg -version > evidence/ffmpeg-version.txt
           dpkg-query -W 'libwebkit2gtk-4.1-0' 'libjavascriptcoregtk-4.1-0' > evidence/runtime-packages.txt
       - name: Download and SHA-256 verify official OrcaSlicer Alpha
@@ -69,6 +69,8 @@ jobs:
           xvfb_pid=$!
           trap 'kill "$xvfb_pid" 2>/dev/null || true' EXIT
           sleep 4
+          DISPLAY=:84 openbox > evidence/openbox.log 2>&1 &
+          sleep 2
           export DISPLAY=:84 QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1
           export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt SSL_CERT_DIR=/etc/ssl/certs
           /tmp/devnet-ubuntu-orca/OrcaSlicer.AppImage --appimage-extract-and-run > evidence/orca-launch.log 2>&1 &
@@ -81,10 +83,67 @@ jobs:
           # Select the actual Pages tab in the deterministically sized Xvfb desktop.
           # Capture separately: plugin can load successfully yet render an empty webview.
           # Choose the real camera tab only after verifying Setup Wizard is absent.
-          if grep -q 'Setup Wizard' evidence/xwininfo.log; then
-            echo 'FAIL: Setup Wizard still blocking camera tab'; exit 1
+          # Orca upstream scripts/CAD/start-headless-gui.sh documents that closing
+          # the first-run wizard with windowclose SIGSEGVs; instead click its
+          # validated Openbox titlebar close control.
+          for attempt in 1 2 3; do
+            win="$(xdotool search --name 'Setup Wizard' 2>/dev/null | head -1 || true)"
+            if [ -z "$win" ];then break;fi
+            eval "$(xdotool getwindowgeometry --shell "$win" 2>/dev/null || true)"
+            if [[ "${X:-}" =~ ^[0-9]+$ ]] && [[ "${Y:-}" =~ ^[0-9]+$ ]] && [[ "${WIDTH:-}" =~ ^[0-9]+$ ]] && [[ "${HEIGHT:-}" =~ ^[0-9]+$ ]];then
+              cx=$((X+WIDTH-11))
+              cy=$((Y-31))
+              if (( cx > 0 && cx < 1280 && cy > 0 && cy < 900 ));then
+                echo "QA_CLOSE_WIZARD_OPENBOX at $cx $cy"
+                xdotool mousemove "$cx" "$cy" click 1
+                sleep 2
+              else echo 'FAIL: invalid wizard close coordinates';exit 1;fi
+            else echo 'FAIL: unverified wizard geometry';exit 1;fi
+          done
+          xwininfo -root -tree > evidence/post-close-window-tree.log || true
+          if grep -q 'Setup Wizard' evidence/post-close-window-tree.log;then
+            echo 'FAIL: Setup Wizard still blocking camera tab';exit 1
           fi
-          xdotool mousemove 825 104 click 1 || true
+          main="$(xdotool search --name '^Untitled
+          sleep 8
+          xwininfo -root -tree > evidence/camera-tab-windows.log || true
+          xwd -root -silent -out /tmp/devnet-ubuntu-orca/camera-tab.xwd >/dev/null 2>&1 || true
+          convert /tmp/devnet-ubuntu-orca/camera-tab.xwd evidence/orca-anycubic-camera-tab.png 2>/dev/null || true
+          if [ -d "$XDG_CONFIG_HOME/OrcaSlicer/log" ]; then
+            cp -R "$XDG_CONFIG_HOME/OrcaSlicer/log" evidence/orca-runtime-logs
+          fi
+          echo "ORCA_GUI_WINDOWS:"
+          tail -n 35 evidence/xwininfo.log
+          echo "PLUGIN_LOG_HITS:"
+          grep -RinE 'Devnet Anycubic|Anycubic Camera|PluginLoader|plugin.*(load|error)' evidence/orca-runtime-logs 2>/dev/null | tail -n 80 || true
+          python3 - <<'PY'
+          import re
+          s=open('evidence/xwininfo.log').read()
+          dims=[]
+          for line in s.splitlines():
+              if 'OrcaSlicer' not in line and 'Orca Slicer' not in line:
+                  continue
+              m=re.search(r'(\d+)x(\d+)\+\d+\+\d+',line)
+              if m:dims.append((int(m.group(1)),int(m.group(2))))
+          print('ORCA_WINDOW_DIMENSIONS',dims)
+          assert any(w>=900 and h>=600 for w,h in dims), 'FAIL: no actual main OrcaSlicer window (only a startup dialog or splash)'
+          PY
+          echo 'REAL_ORCASLICER_WINDOW_DETECTED'
+          echo 'RELEASE_BLOCKED: Plugin Pages tab and physical printer camera remain unverified'
+          kill "$app_pid" >/dev/null 2>&1 || true
+      - name: Preserve genuine app runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-camera-v012-orca-ubuntu-real-gui
+          path: evidence/
+          retention-days: 30
+ | head -1 || true)"
+          if [ -z "$main" ];then echo 'FAIL: main Orca window disappeared';exit 1;fi
+          xdotool windowactivate "$main" || true
+          # Main window remains at x=40,y=50; tab center x=821,y=105.
+          xdotool mousemove 825 104 click 1
+          echo 'QA_ACTUAL_CAMERA_TAB_CLICKED'
           sleep 8
           xwininfo -root -tree > evidence/camera-tab-windows.log || true
           xwd -root -silent -out /tmp/devnet-ubuntu-orca/camera-tab.xwd >/dev/null 2>&1 || true
