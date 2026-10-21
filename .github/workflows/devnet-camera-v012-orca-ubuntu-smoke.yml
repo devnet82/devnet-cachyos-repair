@@ -63,7 +63,7 @@ jobs:
           cp qa/anycubic-camera-v0.1.8/candidate/devnet_anycubic_camera.py "$dir/devnet_anycubic_camera.py"
           printf '109e8c3f6005b1ffb0462a4e61d7d2e3c982018c3f7b8b600bb22f200bded92e  %s\n' "$dir/devnet_anycubic_camera.py" | sha256sum -c - | tee evidence/staged-plugin-checksum.txt
           cat > "$dir/.install_state.json" <<'JSON'
-          {"installed_from":"local","installed_version":"0.1.2","plugin_name":"Devnet Anycubic Camera","enabled":true,"capabilities":[],"permissions":{"fs_read":[],"fs_readwrite":[],"network_http":[],"network_socket":[],"process":[],"threading":[],"events":[]}}
+          {"installed_from":"local","installed_version":"0.1.2","plugin_name":"Devnet Anycubic Camera","enabled":true,"capabilities":[],"permissions":{"fs_read":[],"fs_readwrite":[],"network_http":[],"network_socket":["(\u0027127.0.0.1\u0027, 0)"],"process":["/usr/bin/ffmpeg"],"threading":["thread"],"events":["Socket:socket.__new__"]}}
           JSON
           Xvfb :84 -screen 0 1280x900x24 -nolisten tcp > evidence/xvfb.log 2>&1 &
           xvfb_pid=$!
@@ -113,6 +113,29 @@ jobs:
           xwininfo -root -tree > evidence/camera-tab-windows.log || true
           xwd -root -silent -out /tmp/devnet-ubuntu-orca/camera-tab.xwd >/dev/null 2>&1 || true
           convert /tmp/devnet-ubuntu-orca/camera-tab.xwd evidence/orca-anycubic-camera-tab.png 2>/dev/null || true
+          # E2E QA uses a disposable local synthetic FLV server, never the user's printer.
+          sudo ip addr add 192.168.77.77/32 dev lo || true
+          ip addr show lo | grep -F '192.168.77.77/32'
+          ffmpeg -hide_banner -nostdin -loglevel error -re -f lavfi -i testsrc=size=640x360:rate=8 -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 16 -f flv -listen 1 http://192.168.77.77:18088/flv > evidence/ffmpeg-simulator.log 2>&1 &
+          camera_pid=$!
+          sleep 4
+          if ! kill -0 "$camera_pid" 2>/dev/null;then
+            echo 'FAIL: synthetic FLV source failed to start'
+            cat evidence/ffmpeg-simulator.log
+            exit 1
+          fi
+          xdotool mousemove 220 266 click 1
+          xdotool type --clearmodifiers '192.168.77.77'
+          xdotool mousemove 425 266 click 1
+          sleep 23
+          xwd -root -silent -out /tmp/devnet-ubuntu-orca/camera-live.xwd >/dev/null 2>&1 || true
+          convert /tmp/devnet-ubuntu-orca/camera-live.xwd evidence/orca-anycubic-camera-simulated-live.png 2>/dev/null || true
+          echo 'QA_SIMULATED_CONNECT_CLICKED'
+          echo 'FFMPEG_SOURCES:'
+          ps -eo pid,cmd | grep -E '(192.168.77.77|image2pipe)' | grep -v grep || true
+          echo 'CAMERA_SIMULATOR_OUTPUT:'
+          tail -n 40 evidence/ffmpeg-simulator.log || true
+          kill "$camera_pid" 2>/dev/null || true
           if [ -d "$XDG_CONFIG_HOME/OrcaSlicer/log" ]; then
             cp -R "$XDG_CONFIG_HOME/OrcaSlicer/log" evidence/orca-runtime-logs
           fi
