@@ -104,7 +104,7 @@ jobs:
           finally:s.close()
           PY
           found=0
-          for attempt in $(seq 1 35); do
+          for attempt in $(seq 1 75); do
             if mcopy -o -i /tmp/devnet-orca-guest.img ::/devnet-orca-install.json evidence/devnet-orca-install.json >/dev/null 2>&1; then
               if python3 -m json.tool evidence/devnet-orca-install.json >/dev/null 2>&1; then
                 found=1; echo REAL_ORCA_GUEST_INSTALL_REPORT_CAPTURED; break
