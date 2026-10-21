@@ -17,6 +17,8 @@ install -m 755 /mnt/OrcaSlicer.AppImage /opt/devnet-orca-slicer-v2.5.0-alpha/Orc
 cd /opt/devnet-orca-slicer-v2.5.0-alpha
 ./OrcaSlicer.AppImage --appimage-extract > /mnt/devnet-orca-extract.log 2>&1
 test -x squashfs-root/AppRun
+chmod a+rx /opt/devnet-orca-slicer-v2.5.0-alpha
+chmod -R a+rX /opt/devnet-orca-slicer-v2.5.0-alpha/squashfs-root
 echo DEVNET_REAL_ORCA_APPIMAGE_EXTRACT_INSTALL_PASS
 # Discover the user running the actual Plasma graphical desktop, not the tty root user.
 desktop_pid="$(pgrep -x plasmashell | head -1 || true)"
@@ -46,6 +48,9 @@ print('PLASMA_DISPLAY',env['DISPLAY'],'WAYLAND_DISPLAY',env.get('WAYLAND_DISPLAY
 print('PLASMA_DBUS',bool(env.get('DBUS_SESSION_BUS_ADDRESS')))
 plugindir=home/'.config/OrcaSlicer/orca_plugins/devnet-anycubic-camera'
 plugindir.mkdir(parents=True,exist_ok=True)
+for directory in (home/'.config/OrcaSlicer',home/'.config/OrcaSlicer/orca_plugins',plugindir):
+    os.chown(directory,uid,pw.pw_gid)
+    directory.chmod(0o700)
 src=pathlib.Path('/mnt/devnet_anycubic_camera.py')
 dst=plugindir/'devnet_anycubic_camera.py'
 dst.write_bytes(src.read_bytes())
