@@ -54,6 +54,12 @@ jobs:
           export XDG_CONFIG_HOME="$HOME/.config"
           dir="$XDG_CONFIG_HOME/OrcaSlicer/orca_plugins/devnet-anycubic-camera"
           mkdir -p "$dir"
+          # Bypass Orca's first-run Setup Wizard ONLY in this disposable test profile.
+          # Orca AppConfig.cpp uses JSON OrcaSlicer.conf and [firstguide].finish.
+          cat > "$XDG_CONFIG_HOME/OrcaSlicer/OrcaSlicer.conf" <<'CONFIGJSON'
+          {"firstguide":{"finish":true},"app":{"region":"Europe","language":"en_GB"}}
+          CONFIGJSON
+          python3 -m json.tool "$XDG_CONFIG_HOME/OrcaSlicer/OrcaSlicer.conf" >/dev/null
           cp qa/anycubic-camera-v0.1.8/candidate/devnet_anycubic_camera.py "$dir/devnet_anycubic_camera.py"
           printf '109e8c3f6005b1ffb0462a4e61d7d2e3c982018c3f7b8b600bb22f200bded92e  %s\n' "$dir/devnet_anycubic_camera.py" | sha256sum -c - | tee evidence/staged-plugin-checksum.txt
           cat > "$dir/.install_state.json" <<'JSON'
@@ -74,7 +80,11 @@ jobs:
           convert /tmp/devnet-ubuntu-orca/screen.xwd evidence/orca-screenshot.png 2>/dev/null || true
           # Select the actual Pages tab in the deterministically sized Xvfb desktop.
           # Capture separately: plugin can load successfully yet render an empty webview.
-          xdotool mousemove 820 105 click 1 || true
+          # Choose the real camera tab only after verifying Setup Wizard is absent.
+          if grep -q 'Setup Wizard' evidence/xwininfo.log; then
+            echo 'FAIL: Setup Wizard still blocking camera tab'; exit 1
+          fi
+          xdotool mousemove 825 104 click 1 || true
           sleep 8
           xwininfo -root -tree > evidence/camera-tab-windows.log || true
           xwd -root -silent -out /tmp/devnet-ubuntu-orca/camera-tab.xwd >/dev/null 2>&1 || true
