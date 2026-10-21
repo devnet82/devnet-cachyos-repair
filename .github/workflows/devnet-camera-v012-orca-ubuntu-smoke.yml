@@ -64,6 +64,7 @@ jobs:
           trap 'kill "$xvfb_pid" 2>/dev/null || true' EXIT
           sleep 4
           export DISPLAY=:84 QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt SSL_CERT_DIR=/etc/ssl/certs
           /tmp/devnet-ubuntu-orca/OrcaSlicer.AppImage --appimage-extract-and-run > evidence/orca-launch.log 2>&1 &
           app_pid=$!
           sleep 45
@@ -78,7 +79,18 @@ jobs:
           tail -n 35 evidence/xwininfo.log
           echo "PLUGIN_LOG_HITS:"
           grep -RinE 'Devnet Anycubic|Anycubic Camera|PluginLoader|plugin.*(load|error)' evidence/orca-runtime-logs 2>/dev/null | tail -n 80 || true
-          grep -Eiq 'OrcaSlicer|Orca Slicer' evidence/xwininfo.log || { echo 'FAIL: OrcaSlicer GUI window not detected'; exit 1; }
+          python3 - <<'PY'
+          import re
+          s=open('evidence/xwininfo.log').read()
+          dims=[]
+          for line in s.splitlines():
+              if 'OrcaSlicer' not in line and 'Orca Slicer' not in line:
+                  continue
+              m=re.search(r'(\d+)x(\d+)\+\d+\+\d+',line)
+              if m:dims.append((int(m.group(1)),int(m.group(2))))
+          print('ORCA_WINDOW_DIMENSIONS',dims)
+          assert any(w>=900 and h>=600 for w,h in dims), 'FAIL: no actual main OrcaSlicer window (only a startup dialog or splash)'
+          PY
           echo 'REAL_ORCASLICER_WINDOW_DETECTED'
           echo 'RELEASE_BLOCKED: Plugin Pages tab and physical printer camera remain unverified'
           kill "$app_pid" >/dev/null 2>&1 || true
