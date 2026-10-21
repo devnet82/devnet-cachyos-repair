@@ -1,0 +1,169 @@
+name: Devnet Camera QA - install real OrcaSlicer on CachyOS VM
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - qa/anycubic-camera-v0.1.7/guest_install_orca.sh
+      - .github/workflows/devnet-anycubic-orca-install-v0.1.7.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  install-orca-on-cachyos-vm:
+    name: Install official OrcaSlicer 2.5.0 Alpha in CachyOS KDE guest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify original camera plugin and install script
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence /tmp/devnet-orca-vm
+          printf '574e217288317b8a169a34135887a8a06b7c0b214e82e15c985c918304cb5daf  %s\n' qa/anycubic-camera-v0.1.7/candidate/devnet_anycubic_camera.py | sha256sum -c -
+          python3 -m py_compile qa/anycubic-camera-v0.1.7/candidate/devnet_anycubic_camera.py
+          bash -n qa/anycubic-camera-v0.1.7/guest_install_orca.sh
+      - name: Install genuine QEMU KVM and guest disk utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-system-x86 qemu-utils mtools dosfstools python3-pil
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+          echo HOST_QEMU_KVM_READY
+      - name: Download and SHA-256 verify genuine CachyOS ISO
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://iso.cachyos.org/desktop/260809'
+          name='cachyos-desktop-linux-260809.iso'
+          curl -fsSL --retry 3 --retry-all-errors --connect-timeout 15 --max-time 1200 "$base/$name.sha256" -o "/tmp/devnet-orca-vm/$name.sha256"
+          curl -fsSL --retry 3 --retry-all-errors --connect-timeout 15 --max-time 1200 "$base/$name" -o "/tmp/devnet-orca-vm/$name"
+          (cd /tmp/devnet-orca-vm && sha256sum -c "$name.sha256") | tee evidence/iso-sha256.txt
+      - name: Download and verify official OrcaSlicer 2.5.0 Alpha x86_64 AppImage
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset='OrcaSlicer_Linux_AppImage_Ubuntu2404_V2.5.0-alpha.AppImage'
+          url="https://github.com/OrcaSlicer/OrcaSlicer/releases/download/v2.5.0-alpha/$asset"
+          curl -fL --retry 4 --retry-all-errors --connect-timeout 15 --max-time 900 "$url" -o /tmp/devnet-orca-vm/OrcaSlicer.AppImage
+          printf '386a5ef38991a4fc32ae2e35ee4261bea43d983683ac675a2c2e2395ab2bc7bb  %s\n' /tmp/devnet-orca-vm/OrcaSlicer.AppImage | sha256sum -c - | tee evidence/orca-sha256.txt
+          file /tmp/devnet-orca-vm/OrcaSlicer.AppImage | tee evidence/orca-file.txt
+          test "$(stat -c %s /tmp/devnet-orca-vm/OrcaSlicer.AppImage)" -gt 150000000
+      - name: Prepare disposable, checksum-verified guest transfer drive
+        shell: bash
+        run: |
+          set -euo pipefail
+          truncate -s 512M /tmp/devnet-orca-guest.img
+          mkfs.vfat -F 32 -n DEVNETQA /tmp/devnet-orca-guest.img
+          mcopy -i /tmp/devnet-orca-guest.img /tmp/devnet-orca-vm/OrcaSlicer.AppImage ::/OrcaSlicer.AppImage
+          mcopy -i /tmp/devnet-orca-guest.img qa/anycubic-camera-v0.1.7/candidate/devnet_anycubic_camera.py ::/devnet_anycubic_camera.py
+          mcopy -i /tmp/devnet-orca-guest.img qa/anycubic-camera-v0.1.7/guest_install_orca.sh ::/guest_install_orca.sh
+          mdir -i /tmp/devnet-orca-guest.img ::/
+      - name: Boot true CachyOS desktop and install plus launch real OrcaSlicer
+        shell: bash
+        run: |
+          set -euo pipefail
+          qemu-system-x86_64 -machine q35,accel=kvm -cpu host -m 4096 -smp 2 \
+            -drive file=/tmp/devnet-orca-vm/cachyos-desktop-linux-260809.iso,media=cdrom,if=ide \
+            -drive file=/tmp/devnet-orca-guest.img,format=raw,if=virtio \
+            -boot order=d -vga std -display none \
+            -serial file:evidence/serial.log \
+            -monitor unix:/tmp/devnet-orca-qemu-monitor.sock,server=on,wait=off \
+            -daemonize -pidfile /tmp/devnet-orca-qemu.pid
+          sleep 120
+          python3 - <<'PY'
+          import os,socket,time
+          s=socket.socket(socket.AF_UNIX);s.settimeout(10)
+          s.connect('/tmp/devnet-orca-qemu-monitor.sock')
+          try:
+              try:s.recv(4096)
+              except socket.timeout:pass
+              def cmd(line):
+                  s.sendall((line+'\n').encode())
+                  time.sleep(.18)
+                  try:s.recv(8192)
+                  except socket.timeout:pass
+              cmd('screendump '+os.path.abspath('evidence/cachyos-desktop-before.ppm'))
+              cmd('sendkey ctrl-alt-f3')
+              time.sleep(3)
+              def sendline(line):
+                  mapping={' ':'spc','/':'slash','.':'dot','-':'minus'}
+                  for c in line:cmd('sendkey '+mapping.get(c,c))
+                  cmd('sendkey ret')
+              sendline('root')
+              time.sleep(2)
+              sendline('mount -t vfat /dev/vda /mnt')
+              time.sleep(3)
+              sendline('bash /mnt/guest_install_orca.sh')
+              print('REAL_ORCA_INSTALL_AND_LAUNCH_SENT_TO_CACHYOS')
+          finally:s.close()
+          PY
+          found=0
+          for attempt in $(seq 1 90); do
+            if mcopy -o -i /tmp/devnet-orca-guest.img ::/devnet-orca-install.json evidence/devnet-orca-install.json >/dev/null 2>&1; then
+              if python3 -m json.tool evidence/devnet-orca-install.json >/dev/null 2>&1; then
+                found=1; echo REAL_ORCA_GUEST_INSTALL_REPORT_CAPTURED; break
+              fi
+            fi
+            sleep 8
+          done
+          for f in devnet-orca-install-console.log devnet-orca-GUI.log devnet-orca-extract.log; do
+            mcopy -o -i /tmp/devnet-orca-guest.img "::/$f" "evidence/$f" || true
+          done
+          python3 - <<'PY'
+          import os,socket,time
+          s=socket.socket(socket.AF_UNIX);s.settimeout(10)
+          s.connect('/tmp/devnet-orca-qemu-monitor.sock')
+          try:
+              try:s.recv(4096)
+              except socket.timeout:pass
+              def cmd(line):
+                  s.sendall((line+'\n').encode())
+                  time.sleep(.2)
+                  try:s.recv(8192)
+                  except socket.timeout:pass
+              cmd('sendkey ctrl-alt-f1')
+              time.sleep(6)
+              cmd('screendump '+os.path.abspath('evidence/orca-desktop-after-tty1.ppm'))
+              cmd('sendkey ctrl-alt-f2')
+              time.sleep(3)
+              cmd('screendump '+os.path.abspath('evidence/orca-desktop-after-tty2.ppm'))
+          finally:s.close()
+          PY
+          python3 - <<'PY'
+          from PIL import Image
+          import pathlib
+          for file in pathlib.Path("evidence").glob("*.ppm"):
+              try:
+                  im=Image.open(file)
+                  im.save(str(file.with_suffix(".png")))
+                  print("REAL_QEMU_FRAMEBUFFER",file.name,im.size)
+              except Exception as e: print("SCREENSHOT_ERROR",file.name,repr(e))
+          PY
+          if [ "$found" != 1 ]; then
+            echo 'BLOCKED: real OrcaSlicer install/launch report missing' | tee evidence/status.txt
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          d=json.load(open('evidence/devnet-orca-install.json'))
+          assert d['install_verified'], 'OrcaSlicer not actually installed'
+          assert d['gui_still_running'], 'OrcaSlicer GUI died after launch'
+          assert d['release_decision']=='BLOCKED', 'unsafe plugin release approval'
+          assert d['plugin_loaded_in_real_host']=='NOT_TESTED', 'unfounded plugin registration claim'
+          print('PASS: OrcaSlicer installed in genuine CachyOS VM and GUI survived launch')
+          print('PLUGIN REQUIRES MANUAL HOST VALIDATION; RELEASE BLOCKED')
+          PY
+      - name: Preserve original logs, QA report and QEMU screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devnet-orca-cachyos-install-v0.1.7
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: warn
