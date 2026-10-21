@@ -127,7 +127,22 @@ jobs:
           xdotool mousemove 220 266 click 1
           xdotool type --clearmodifiers '192.168.77.77'
           xdotool mousemove 425 266 click 1
-          sleep 23
+          # Exercise the REAL Orca permission approval path in this disposable QA VM.
+          # No such approval is assumed on the user's computer.
+          for tick in $(seq 1 16);do
+            prompt="$(xdotool search --name 'Plugin permission request' 2>/dev/null | head -1 || true)"
+            if [ -n "$prompt" ];then
+              echo "QA_APPROVE_TEST_ONLY_PERMISSION_PROMPT tick=$tick"
+              xdotool windowactivate "$prompt" >/dev/null 2>&1 || true
+              xdotool key --clearmodifiers alt+y || true
+              sleep 1
+              if xdotool search --name 'Plugin permission request' >/dev/null 2>&1;then
+                xdotool key --clearmodifiers Return || true
+              fi
+            fi
+            sleep 2
+          done
+          cp "$dir/.install_state.json" evidence/permissions-after-simulation.json
           xwd -root -silent -out /tmp/devnet-ubuntu-orca/camera-live.xwd >/dev/null 2>&1 || true
           convert /tmp/devnet-ubuntu-orca/camera-live.xwd evidence/orca-anycubic-camera-simulated-live.png 2>/dev/null || true
           echo 'QA_SIMULATED_CONNECT_CLICKED'
