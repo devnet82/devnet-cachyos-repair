@@ -99,6 +99,20 @@ jobs:
           print('ROOT_BOUNDARY: PASS user cannot edit, delete or replace root-owned gate; RELEASE=BLOCKED')
           PY
           sudo rm -rf -- /usr/local/libexec/devnet-synthetic-qa-guard
+      - name: Testinfra read-only host probe in isolated GitHub VM
+        shell: bash
+        run: |
+          sudo apt-get install -y --no-install-recommends python3-venv
+          /usr/bin/python3 -m venv /tmp/devnet-testinfra-qa
+          /tmp/devnet-testinfra-qa/bin/python -m pip -q install 'pytest-testinfra>=10,<12'
+          /tmp/devnet-testinfra-qa/bin/python - <<'PY'
+          import testinfra
+          target=testinfra.get_host('local://')
+          result=target.run('hostname')
+          assert result.rc==0 and result.stdout.strip(), 'HOST_PROBE_FAILED'
+          assert target.file('/etc/os-release').exists, 'OS_RELEASE_ABSENT'
+          print('TESTINFRA: PASS local VM read-only host probe and OS release')
+          PY
       - name: Exercise GTK3 menu click through real XTest events in Xvfb
         shell: bash
         env:
