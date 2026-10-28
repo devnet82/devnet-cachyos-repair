@@ -55,6 +55,27 @@ jobs:
               else:raise AssertionError('tampering accepted')
           print('MANIFEST: PASS canonical + ./ names, bad paths, tampering')
           PY
+      - name: Reproduce bytecode inventory drift after running Python tests
+        shell: bash
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import pathlib, subprocess, sys, tempfile, shutil, os
+          with tempfile.TemporaryDirectory() as d:
+              root=pathlib.Path(d)
+              (root/'examplemodule.py').write_text('VALUE=42\\n')
+              expected={'examplemodule.py'}
+              def inventory():
+                  return {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
+              env={**os.environ,'PYTHONPATH':str(root)}
+              plain=subprocess.run(['/usr/bin/python3','-c','import examplemodule'],env=env,capture_output=True,text=True)
+              assert plain.returncode==0,plain.stderr
+              assert inventory()!=expected and any('__pycache__' in p for p in inventory())
+              shutil.rmtree(root/'__pycache__')
+              clean=subprocess.run(['/usr/bin/python3','-B','-c','import examplemodule'],env=env,capture_output=True,text=True)
+              assert clean.returncode==0,clean.stderr
+              assert inventory()==expected
+          print('INVENTORY_DRIFT: REPRODUCED with imports; PREVENTED using python -B')
+          PY
       - name: Exercise GTK3 menu click through real XTest events in Xvfb
         shell: bash
         env:
