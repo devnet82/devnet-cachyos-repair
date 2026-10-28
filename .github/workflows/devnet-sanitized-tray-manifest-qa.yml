@@ -1,0 +1,135 @@
+name: "Devnet sanitized GTK and manifest QA (no project files)"
+on:
+  push:
+    branches:
+      - qa/isolated-tray-manifest-diagnostics-20261028
+  pull_request:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  isolated-diagnostics:
+    name: "GitHub Ubuntu VM: GTK pointer and manifest"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Install isolated GUI test prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-gi gir1.2-gtk-3.0 xvfb xauth libxtst6 libx11-6
+      - name: Reproduce manifest prefix issue and verify fail-closed handling
+        shell: bash
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import hashlib, pathlib, tempfile
+          def audit(root, manifest):
+              files={p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file() and p.name!='SHA256SUMS'}
+              seen=set()
+              for row in manifest.splitlines():
+                  if len(row)<67 or row[64:66]!='  ':raise ValueError('format')
+                  raw=row[66:]
+                  path=raw[2:] if raw.startswith('./') else raw
+                  parts=path.split('/')
+                  if (not path or path.startswith('/') or '\\' in path or
+                      any(p in ('','.','..') for p in parts) or path in seen or path not in files):
+                      raise ValueError('path')
+                  if hashlib.sha256((root/path).read_bytes()).hexdigest()!=row[:64]:
+                      raise ValueError('hash')
+                  seen.add(path)
+              if seen!=files:raise ValueError('inventory')
+          with tempfile.TemporaryDirectory() as d:
+              root=pathlib.Path(d)
+              data=root/'example.py'
+              data.write_text("print('test')\n")
+              digest=hashlib.sha256(data.read_bytes()).hexdigest()
+              for path in ('example.py','./example.py'):
+                  audit(root, f'{digest}  {path}\n')
+              for bad in ('../example.py','./../example.py','/example.py','./missing.py'):
+                  try:audit(root, f'{digest}  {bad}\n')
+                  except ValueError:pass
+                  else:raise AssertionError('unsafe path accepted: '+bad)
+              data.write_text('tampered\n')
+              try:audit(root, f'{digest}  ./example.py\n')
+              except ValueError:pass
+              else:raise AssertionError('tampering accepted')
+          print('MANIFEST: PASS canonical + ./ names, bad paths, tampering')
+          PY
+      - name: Exercise GTK3 menu click through real XTest events in Xvfb
+        shell: bash
+        env:
+          GDK_BACKEND: x11
+          NO_AT_BRIDGE: "1"
+        run: |
+          xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" /usr/bin/python3 - <<'PY'
+          import ctypes, ctypes.util, sys, time
+          import gi
+          gi.require_version('Gtk','3.0')
+          from gi.repository import Gtk, Gdk
+          stage='GTK_INITIALISE'
+          callback=[]
+          def pump(n):
+              for _ in range(n):
+                  while Gtk.events_pending():Gtk.main_iteration_do(False)
+                  time.sleep(.03)
+          anchor=None
+          menu=None
+          d=None
+          try:
+              assert Gtk.init_check([])[0]
+              menu=Gtk.Menu()
+              item=Gtk.MenuItem(label='Open GUI')
+              item.connect('activate', lambda unused: callback.append('VERIFIED'))
+              menu.append(item)
+              anchor=Gtk.Window()
+              anchor.set_default_size(220,120)
+              anchor.move(250,200)
+              anchor.show_all()
+              menu.attach_to_widget(anchor,None)
+              menu.show_all()
+              menu.popup(None,None,None,None,0,Gdk.CURRENT_TIME)
+              pump(18)
+              stage='MENU_MAPPED'
+              assert menu.get_mapped() and item.get_mapped(), 'MENU_NOT_MAPPED'
+              window=menu.get_window()
+              alloc=item.get_allocation()
+              origin=window.get_origin()
+              translated=item.translate_coordinates(menu,alloc.width//2,alloc.height//2)
+              assert isinstance(origin,tuple) and len(origin) in (2,3), 'MENU_ORIGIN'
+              assert isinstance(translated,tuple) and len(translated) in (2,3), 'MENU_TRANSLATE'
+              if len(translated)==3:assert translated[0], 'MENU_TRANSLATE_FALSE'
+              x,y=int(origin[-2]+translated[-2]),int(origin[-1]+translated[-1])
+              assert 0<=x<1280 and 0<=y<900, 'MENU_COORDS'
+              stage='FRAME'
+              frame=Gdk.pixbuf_get_from_window(window,0,0,min(window.get_width(),1200),min(window.get_height(),900))
+              assert frame is not None, 'NO_FRAME'
+              stage='CLICK'
+              xlib=ctypes.CDLL(ctypes.util.find_library('X11'))
+              xt=ctypes.CDLL(ctypes.util.find_library('Xtst'))
+              xlib.XOpenDisplay.argtypes=[ctypes.c_char_p]
+              xlib.XOpenDisplay.restype=ctypes.c_void_p
+              xlib.XSync.argtypes=[ctypes.c_void_p,ctypes.c_int]
+              xlib.XCloseDisplay.argtypes=[ctypes.c_void_p]
+              xt.XTestFakeMotionEvent.argtypes=[ctypes.c_void_p,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_ulong]
+              xt.XTestFakeMotionEvent.restype=ctypes.c_int
+              xt.XTestFakeButtonEvent.argtypes=[ctypes.c_void_p,ctypes.c_uint,ctypes.c_int,ctypes.c_ulong]
+              xt.XTestFakeButtonEvent.restype=ctypes.c_int
+              d=xlib.XOpenDisplay(None)
+              assert d,'XTEST_UNAVAILABLE'
+              assert xt.XTestFakeMotionEvent(d,-1,x,y,0)==1,'MOTION_FAILED'
+              xlib.XSync(d,0);pump(8)
+              assert xt.XTestFakeButtonEvent(d,1,1,0)==1,'PRESS_FAILED'
+              xlib.XSync(d,0);pump(5)
+              assert xt.XTestFakeButtonEvent(d,1,0,0)==1,'RELEASE_FAILED'
+              xlib.XSync(d,0);pump(25)
+              stage='CALLBACK'
+              assert callback==['VERIFIED'],f'CALLBACK_NOT_VERIFIED count={len(callback)}'
+              print(f'GTK_POINTER: PASS origin_shape={len(origin)} translate_shape={len(translated)} callback=VERIFIED')
+          except Exception as exc:
+              print(f'GTK_POINTER: FAIL stage={stage} type={type(exc).__name__} reason={str(exc)[:120]}')
+              sys.exit(1)
+          finally:
+              if d:xlib.XCloseDisplay(d)
+              if menu:menu.popdown()
+              if anchor:anchor.destroy()
+          PY
