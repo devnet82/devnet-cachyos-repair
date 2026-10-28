@@ -76,6 +76,29 @@ jobs:
               assert inventory()==expected
           print('INVENTORY_DRIFT: REPRODUCED with imports; PREVENTED using python -B')
           PY
+      - name: Verify root-owned gate rejects unprivileged AI tampering
+        shell: bash
+        run: |
+          sudo install -d -o root -g root -m 0755 /usr/local/libexec/devnet-synthetic-qa-guard
+          printf '%s\\n' 'RELEASE=BLOCKED' | sudo tee /usr/local/libexec/devnet-synthetic-qa-guard/policy.txt >/dev/null
+          sudo chown root:root /usr/local/libexec/devnet-synthetic-qa-guard/policy.txt
+          sudo chmod 0444 /usr/local/libexec/devnet-synthetic-qa-guard/policy.txt
+          sudo -u nobody /usr/bin/python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/usr/local/libexec/devnet-synthetic-qa-guard/policy.txt')
+          for attack in ('write','unlink','replace'):
+              try:
+                  if attack=='write': p.write_text('RELEASE=APPROVED')
+                  if attack=='unlink': p.unlink()
+                  if attack=='replace': p.rename(p.parent/'forged.txt')
+              except PermissionError:
+                  pass
+              else:
+                  raise AssertionError('unprivileged attack unexpectedly succeeded: '+attack)
+          assert p.read_text().strip()=='RELEASE=BLOCKED'
+          print('ROOT_BOUNDARY: PASS user cannot edit, delete or replace root-owned gate; RELEASE=BLOCKED')
+          PY
+          sudo rm -rf -- /usr/local/libexec/devnet-synthetic-qa-guard
       - name: Exercise GTK3 menu click through real XTest events in Xvfb
         shell: bash
         env:
