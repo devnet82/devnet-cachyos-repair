@@ -62,7 +62,7 @@ jobs:
           import pathlib, subprocess, sys, tempfile, shutil, os
           with tempfile.TemporaryDirectory() as d:
               root=pathlib.Path(d)
-              (root/'examplemodule.py').write_text('VALUE=42\\n')
+              (root/'examplemodule.py').write_text('VALUE=42\n')
               expected={'examplemodule.py'}
               def inventory():
                   return {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
