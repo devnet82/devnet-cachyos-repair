@@ -30,7 +30,7 @@ class Ollama:
     def run(self,model,prompt,retain=False):
         if self.loaded()-{model}: raise RouterError("Other Ollama models loaded")
         try:
-            result=self.call("/api/generate",{"model":model,"prompt":prompt,"stream":False,"keep_alive":0,"options":{"num_predict":2048}})
+            result=self.call("/api/generate",{"model":model,"prompt":prompt,"stream":False,"keep_alive":"10m" if retain else 0,"options":{"num_predict":2048}})
             if not result.get("done") or result.get("done_reason")=="length" or not isinstance(result.get("response"),str):
                 raise RouterError("Incomplete or truncated response")
             return result["response"]
