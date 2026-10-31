@@ -52,3 +52,13 @@ After successful GitHub-first native CachyOS QEMU 70/70 and signed independent e
 - A `ResourceWarning` appeared in the test output; it did not cause test failure. Preserve as non-fatal issue, investigate if potentially meaningful.
 - This is **VM regression-scope PASS only** from user-provided execution evidence. GitHub-first test ordering observed. No claim of OpenCode live model, full GUI/tray, live gaming, VM installed upgrade, release acceptance or fresh v0.1.7 Ollama 9B→30B host test. Existing host v0.1.2 installation untouched.
 **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## User-host exact v0.1.7 uninstalled doctor PASS — 31 October 2026
+
+User executed SHA256-checked exact v0.1.7 ZIP `46134abe84b13ef4847e24183f6710092448e6c8409dd4b1a5991e6b7b343ff6` as extracted standalone uninstalled source with `doctor` on host CachyOS. Raw output:
+```
+PASS: OpenCode sandbox, offline network, private workspace, models and subagent config
+V0.1.7 HOST DOCTOR: PASS
+```
+Check returned exit 0; the installed production v0.1.2 was not upgraded or modified. **Host doctor PASS only**, not actual live 9B/30B delegation, real gaming interruption, full security or host Master QA approval. Next: exact v0.1.7 fresh live required 30B delegation and model loading/unloading; do not inherit v0.1.6 PASS.
+**MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
