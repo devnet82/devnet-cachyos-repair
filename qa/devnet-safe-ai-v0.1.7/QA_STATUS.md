@@ -106,3 +106,18 @@ Thus **real game detection and fail-closed refusal to start AI on exact v0.1.7 P
 
 ## User host v0.1.7 mid-task guard precondition blocked — 31 October 2026
 User's attempt to run exact candidate mid-inference gaming-flag stop/unload test terminated safely before OpenCode launch at `assert not m.gaming_now(), "CLOSE GAMES FIRST"`. This means trusted host game guard returned True before the run. The test did **NOT** create its temporary gaming-on flag, did **NOT** launch an AI job, and collected **NO** inference/stop/unload results. It is **BLOCKED precondition**, not PASS or FAIL for the intended mid-task test. Next: read-only inspect manual flags plus matched /proc process names without printing full arguments or altering any processes. No installed launch change. MASTER_QA=BLOCKED; RELEASE_APPROVED=false.
+
+## Exact v0.1.7 user-host genuine mid-inference stop and Ollama model unload — PASS (manual sentinel), 31 October 2026
+
+User retried SHA256-verified exact downloaded v0.1.7 candidate uninstalled, after real game activity cleared, with running OpenCode 9B, and temporary `~/.config/devnet-qa-automation/gaming-on` sentinel created **only after** an active `qwen3.5:9b` was actually seen in real `ollama ps`; sentinel then removed by test's cleanup.
+User-provided raw runtime output:
+```
+MODEL ACTIVE BEFORE STOP: True
+STOP EXIT: 2
+MODEL UNLOADED: True
+GUARD MESSAGE:
+> build · qwen3.5:9b
+BLOCKED: Gaming detected; sandbox stopped and models unloaded
+V0.1.7 MID-TASK INTERRUPTION: PASS
+```
+**PASS** for real active 9B inference stopped by flag and no resident Ollama models ~3 seconds after stop. Exit code 2 confirms fail-closed behaviour. This does **not** establish automatic game-process detection *during* active inference (real No Man's Sky active launch before start was independently PASS), actual VR start, or a 30B interruption mid-delegation. Installed host v0.1.2 unchanged; required integrated upgrade/rollback and release evidence still pending. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
