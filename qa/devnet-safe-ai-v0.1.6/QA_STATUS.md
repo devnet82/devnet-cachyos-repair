@@ -18,3 +18,9 @@
 - GitHub-hosted genuine CachyOS VM full fresh 55-test/security suite, independent evidence gate: [run 41230865437](https://github.com/devnet82/devnet-cachyos-repair/actions/runs/41230865437) **PENDING** at creation.
 - Real user-host candidate v0.1.6 doctor, live 9B Write, 30B handoff and model unloading, gaming/VR pause, installation/rollback and full Master QA: **NOT TESTED**. Historical v0.1.5 PASS does not count for v0.1.6.
 - **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.** No production installation.
+
+## Verified GitHub-first v0.1.6 VM result — 31 October 2026
+
+- [workflow run 41230865437](https://github.com/devnet82/devnet-cachyos-repair/actions/runs/41230865437): **ALL 3 JOBS SUCCESS**, including deterministic v0.1.6 exact-archive SHA256 preflight, genuine booted native CachyOS QEMU/KVM guest **55/55 full fresh regression tests PASS** (46 previous plus 9 new required-delegation checks), real unprivileged Bubblewrap security scope, independent evidence/scope gate and signed attestations. Exact candidate SHA256 verified: `5dda7c3355d754efe07f2d44a89ff65d9843d32fffc71e0bfdb80923bec69a25`.
+- No user host v0.1.6 live test yet. Mandatory specialist requirement is checked in mocked unit tests; real 9B→30B model run and GPU unloading still need direct host validation for this exact revision.
+- **GITHUB_FIRST_SCOPE=PASS_LIMITED; MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
