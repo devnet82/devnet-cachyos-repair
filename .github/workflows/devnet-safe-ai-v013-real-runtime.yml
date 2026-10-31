@@ -1,0 +1,136 @@
+name: Devnet Safe AI v013 genuine OpenCode V2 Ollama sandbox runtime - NO RELEASE
+on:
+  push:
+    branches: [qa/devnet-safe-ai-v0.1.3-reasoning-fix]
+    paths: ['.github/workflows/devnet-safe-ai-v013-real-runtime.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-opencode-and-ollama:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - name: Verify unmodified candidate and fresh 35 regressions
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p evidence /tmp/devnet-safe-v013-qa
+          echo '8a55f4dbc9e939b04b798b7176ed8ab10b0439a88fc7609f134b528d1d3daf7b  qa/devnet-safe-ai-v0.1.3/candidate.zip' | sha256sum -c -
+          unzip -qq qa/devnet-safe-ai-v0.1.3/candidate.zip -d /tmp/devnet-safe-v013-qa
+          (cd /tmp/devnet-safe-v013-qa && python3 test_devnet_safe_ai_v0.1.3.py) > evidence/fresh-unit.log 2>&1
+          cat evidence/fresh-unit.log
+          grep -q 'Ran 35 tests' evidence/fresh-unit.log
+          grep -qx 'OK' evidence/fresh-unit.log
+          echo 'EXACT_V013_35_FRESH_REGRESSIONS_PASS'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install REAL OpenCode V2 and sandbox tools in disposable GitHub runner
+        shell: bash
+        timeout-minutes: 8
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends bubblewrap socat curl ca-certificates
+          npm install -g @opencode/cli@2.1.4
+          command -v opencode
+          opencode --version | tee evidence/opencode-version.log
+          grep -q '^2[.]1[.]4' evidence/opencode-version.log
+          command -v bwrap; command -v socat
+          echo 'REAL_OPENCODE_2_1_4_INSTALLED'
+      - name: Install and start REAL local Ollama on loopback only
+        shell: bash
+        timeout-minutes: 8
+        run: |
+          set -Eeuo pipefail
+          curl --fail --silent --show-error --location https://ollama.com/install.sh -o /tmp/devnet-ollama-install.sh
+          sudo sh /tmp/devnet-ollama-install.sh
+          ollama --version | tee evidence/ollama-version.log
+          sudo systemctl stop ollama.service 2>/dev/null || true
+          export OLLAMA_HOST=127.0.0.1:11434
+          export OLLAMA_NO_CLOUD=1
+          export OLLAMA_NUM_PARALLEL=1
+          export OLLAMA_KEEP_ALIVE=1m
+          export OLLAMA_CONTEXT_LENGTH=8192
+          nohup ollama serve > evidence/ollama-server.log 2>&1 &
+          for i in $(seq 1 50); do
+            if curl --fail --silent --show-error http://127.0.0.1:11434/api/tags > evidence/ollama-tags.json; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
+          test "$(ss -lnt '( sport = :11434 )' | grep -c 127.0.0.1)" -ge 1
+          echo 'REAL_LOOPBACK_OLLAMA_HEALTH_PASS'
+      - name: Run exact candidate REAL bwrap plus OpenCode doctor, unmodified host config
+        shell: bash
+        timeout-minutes: 4
+        run: |
+          set -Eeuo pipefail
+          sudo mkdir -p /mnt/devnet-ai/projects/devnet-ai-safe-workspace
+          sudo chown -R "$(id -u):$(id -g)" /mnt/devnet-ai
+          mkdir -p "$HOME/.local/share/devnet-safe-ai/opencode-home"
+          chmod 700 "$HOME/.local/share/devnet-safe-ai" "$HOME/.local/share/devnet-safe-ai/opencode-home"
+          timeout --signal=TERM --kill-after=8s 135s python3 /tmp/devnet-safe-v013-qa/devnet-safe-ai-v0.1.3.py doctor > evidence/real-doctor.log 2>&1 || {
+            cat evidence/real-doctor.log
+            echo 'GENUINE_SANDBOX_DOCTOR_FAIL_NO_RELEASE'
+            exit 1
+          }
+          cat evidence/real-doctor.log
+          grep -F 'PASS: OpenCode sandbox, offline network, private workspace, models and subagent config' evidence/real-doctor.log
+          echo 'GENUINE_OPENCODE_V2_BWRAP_DOCTOR_PASS'
+      - name: Real 9B model download and OpenCode Write acceptance
+        shell: bash
+        timeout-minutes: 17
+        run: |
+          set -Eeuo pipefail
+          export OLLAMA_HOST=127.0.0.1:11434
+          timeout 900s ollama pull qwen3.5:9b | tee evidence/model-pull.log
+          ollama list | tee evidence/models.log
+          grep -q 'qwen3.5:9b' evidence/models.log
+          ws=/mnt/devnet-ai/projects/devnet-ai-safe-workspace
+          test ! -e "$ws/REAL_LIVE_QA.txt"
+          prompt='Use the real file editing tool to create REAL_LIVE_QA.txt in the current workspace. Put only the exact line DEVNET_REAL_OPENCODE_9B_WRITE_PASS inside it. Do not just describe a file. Then confirm.'
+          timeout --signal=TERM --kill-after=8s 480s python3 /tmp/devnet-safe-v013-qa/devnet-safe-ai-v0.1.3.py run "$prompt" > evidence/real-file-write.log 2>&1 || {
+            tail -n 150 evidence/real-file-write.log
+            echo 'GENUINE_9B_WRITE_FAILED_NO_RELEASE'
+            exit 1
+          }
+          test -f "$ws/REAL_LIVE_QA.txt"
+          grep -qx 'DEVNET_REAL_OPENCODE_9B_WRITE_PASS' "$ws/REAL_LIVE_QA.txt"
+          echo 'GENUINE_QWEN_9B_OPENCODE_WRITE_FILE_VERIFIED'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: devnet-safe-v013-real-runtime-evidence-no-release
+          path: evidence/
+          if-no-files-found: warn
+  independent-real-runtime-evidence-gate:
+    needs: real-opencode-and-ollama
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@v4
+        with:
+          name: devnet-safe-v013-real-runtime-evidence-no-release
+          path: evidence
+      - name: Deterministic independent real 9B-only scope evidence gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo '8a55f4dbc9e939b04b798b7176ed8ab10b0439a88fc7609f134b528d1d3daf7b  qa/devnet-safe-ai-v0.1.3/candidate.zip' | sha256sum -c -
+          grep -q 'Ran 35 tests' evidence/fresh-unit.log
+          grep -qx 'OK' evidence/fresh-unit.log
+          grep -q '^2[.]1[.]4' evidence/opencode-version.log
+          grep -F 'PASS: OpenCode sandbox, offline network, private workspace, models and subagent config' evidence/real-doctor.log
+          grep -q 'qwen3.5:9b' evidence/models.log
+          grep -q 'DEVNET_REAL_OPENCODE_9B_WRITE_PASS' evidence/real-file-write.log
+          echo 'REAL_OPENCODE_9B_FILE_WRITING_PASS_LIMITED'
+          echo 'LIVE_30B_DELEGATION=NOT_TESTED'
+          echo 'HOST_CACHYOS_SECURITY=NOT_TESTED'
+          echo 'HOST_GAMING_PAUSE=NOT_TESTED'
+          echo 'MASTER_QA=BLOCKED'
+          echo 'RELEASE_APPROVED=false'
