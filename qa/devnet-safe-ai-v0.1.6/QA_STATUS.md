@@ -53,3 +53,13 @@ Exact previously SHA-verified v0.1.6 candidate ran on real CachyOS with 9B OpenC
 ## Host gaming detector integration code-path review — 31 October 2026
 
 User read actual host `~/.local/lib/devnet-qa-automation/agent.py` lines 69–89: `gaming_now(proc_root=Path("/proc"))` returns True for MANUAL_PAUSE or STOP_FILE; fails closed when /proc absent or unreadable; iterates per-process `comm` and `cmdline` and calls `process_is_game(comm, cmd)` on each. The exact v0.1.6 ZIP code `gaming_now()` checks `~/.config/devnet-qa-automation/{stop-all,gaming-on}` and loads this trusted agent module on the host via `importlib.util.spec_from_file_location`, invoking its `gaming_now()` (fails closed on errors), at launch and every ~0.75 s during run. Thus static linkage/invocation path to existing automatic process scanner is confirmed; actual matcher definitions `process_is_game` and running Steam/Proton/VR game automatic detection still NOT REVIEWED/NOT TESTED. Manual sentinel mid-task PASS is not real Steam/VR proof. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## Review of host `process_is_game()` rules, QA agent v0.4.4 — 31 October 2026
+
+User supplied actual `agent.py` lines 1–70. `process_is_game(comm,cmdline)` returns true if the lowercased exact `comm` is in `GAME_NAMES` (`gamescope`, wine launchers/wineserver, `vrserver`/`vrcompositor`/`vrmonitor`, `steamvr`, `wivrn-server`, etc), if lowercased command line contains `/steamapps/common/` or `/steamapps/compatdata/`, or if name ends in `.exe` except `explorer.exe`, `services.exe`, `steam.exe`. Idle `steam`, `steamwebhelper`, Discord are not flagged by name alone.
+**Static matching caveats / new acceptance tests needed**:
+- Native games whose names/argv do not include any listed process name/Steam path, such as system-packaged `supertuxkart`, will **NOT be detected automatically**. This is a genuine coverage gap for the requirement "pause while gaming", not yet addressed by v0.1.6.
+- Auxiliary `.exe` processes (except the three exclusions), `wineserver` and some VR services may be detected despite no active play (false pauses). Steam content paths in unrelated CLI arguments could also be detected, so process-name vs argument matching needs real checks and false-positive scenarios.
+- Code review is **NOT** an actual Steam/Proton/VR game launch test or 30B model-unload proof. Do not mark automatic game recognition as PASS until real integration evidence.
+- For process-matcher acceptance, print only synthetic test names and Boolean results; do not log real /proc command lines (privacy).
+**MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
