@@ -116,14 +116,13 @@ jobs:
           print('REAL_CACHYOS_EXACT_ZIP_PASS')
           PY
           cd /tmp/devnet-safe-ai-v017
-          python3 test_devnet_safe_ai_v0.1.7.py > /mnt/unit-tests.log 2>&1
+          # Exercise installer/rollback under a genuine non-root account.\n          useradd --create-home --shell /bin/sh devnet-qaisolated\n          sudo -u devnet-qaisolated python3 test_devnet_safe_ai_v0.1.7.py > /mnt/unit-tests.log 2>&1
           cat /mnt/unit-tests.log
           grep -q 'Ran 70 tests' /mnt/unit-tests.log
           grep -qx 'OK' /mnt/unit-tests.log
           echo '=== Native CachyOS unprivileged bubblewrap escape regression ==='
           command -v bwrap
           command -v useradd
-          useradd --create-home --shell /bin/sh devnet-qaisolated
           mkdir -p /tmp/devnet-bwrap-workspace
           chown devnet-qaisolated:devnet-qaisolated /tmp/devnet-bwrap-workspace
           chmod 0700 /tmp/devnet-bwrap-workspace
