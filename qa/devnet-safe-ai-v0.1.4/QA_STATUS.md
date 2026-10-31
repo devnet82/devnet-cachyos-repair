@@ -28,3 +28,15 @@ User's real v0.1.3 OpenCode 2.1.4 host session shows 21 qwen3-coder:30b messages
 - **Scope limitation**: no actual 30B inference/handoff in the hosted VM; new host-CachyOS runtime doctor/write/delegation, active game interruption, memory unload, install and rollback remain NOT TESTED for v0.1.4. A completed unit/security test gate does not approve production release.
 
 **GITHUB_FIRST_TESTS=PASS_LIMITED; MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## Genuine user-host v0.1.4 live delegation run — 31 October 2026
+
+User obtained exact v0.1.4 candidate and ran uninstalled `doctor` and `run` via private CachyOS launcher in fish. Observed:
+- `doctor`: `PASS: OpenCode sandbox, offline network, private workspace, models and subagent config`.
+- 9B `build` invoked `devnet-heavy` using real subagent tool, and returned a textual analysis.
+- `DEVNET RESULT AUDIT: PASS (new tool failures: 0; completed delegations: 1 )`, `V014 EXIT: 0`.
+- `ollama ps` immediately after run showed `qwen3.5:9b` loaded with 29 sec TTL; 30B not shown. This is consistent with 30B unloading, but transient inference and unload metrics were not independently sampled or attested for this exact run.
+- **Semantic correctness FAIL**: model's shared-counter example starts at 5 and increments twice, but incorrectly claims final should be **10** rather than **7**; also states observed 100,000-iteration benchmark range without executing or evidencing such a test.
+- **Explicit scope**: mechanics of completing real 9B→subagent→9B handoff PASS_LIMITED, CLI result audit PASS, answer factual grounding FAIL, no user-endorsed final acceptance or broad Master QA; `RESULT AUDIT: PASS` covers tool completion, not semantic QA. Existing launcher not replaced.
+- **NEXT**: independently inspect last completed `subagent` tool return and 30B model metadata for the specific session, distinguish specialist errors from coordinator rewriting. Add semantic/evidence fail-closed acceptance to task-specific QA without hallucinating benchmarks; rerun all candidate regression tests only if the artifact changes.
+**MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
