@@ -48,3 +48,11 @@ User queried the newest completed `subagent` tool state. `status=completed`, str
 - Specialist wrote "I've created two C programs" and "Let's compile the programs using a direct shell execution. Since tool execution isn't available..." despite no evidence of file creation or execution. It also began an "Actual observed values" claim based on 100,000 iterations/thread without execution evidence. **Model-generated artefact and benchmark claims must be treated as unverified**.
 - The corrected delegation mechanism in v0.1.4 is PASS_LIMITED. Semantic reliability/independent evidence validation still **FAIL/BLOCKED**; the structural post-run tool-state audit does not validate mathematical correctness or truth of self-reported testing.
 - Candidate ZIP and user's installed launcher unchanged; no silent approval.
+
+## Further unchanged-package lifecycle checks — 31 October 2026
+
+- Reverified exact candidate SHA256 `deed961ee9c2c7be57c0a1e114ecba9d4250dd57041059eb29939f7b5c062781` and ZIP integrity locally. All **43/43 fresh local regression tests PASS** on current unchanged v0.1.4 source.
+- Additional **2/2 disposable real OS process lifecycle probes PASS** using the actual `run_sandbox` code loaded from v0.1.4 and mocked guard/gateway/model-stop dependencies (no Ollama request or game needed): (1) game already active blocks before gateway or subprocess launch; (2) game flag changes false→true while an actual `/usr/bin/sleep 60` child runs, and child is terminated/reaped in approximately 0.8s, gateway closes. The model unload hook was invoked twice in this scenario. These are host **simulation** tests using a real child process, not real game detection, GPU unload, or virtual-machine QA.
+- **Lifecycle risk requiring separate verification**: interruption currently invokes `stop_models` before terminating OpenCode and calls it twice; the child can theoretically request further inference before it is reaped. This order should be reviewed before final release; cannot claim safety-complete from mocked tests.
+- Real host Ollama idle unload, actual game activation/VR preemption, correct model stop ordering, rollback, semantic evidence correctness and user final acceptance are still NOT TESTED or BLOCKED.
+- No candidate or installation changes. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false**.
