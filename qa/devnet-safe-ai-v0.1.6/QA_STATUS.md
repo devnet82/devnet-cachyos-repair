@@ -116,3 +116,13 @@ User's real CachyOS read-only inspection:
 - Source inspection of v0.1.6 `install()`: when `~/.local/bin/devnet-safe-ai` exists with different bytes, it **fails closed**, no overwrite, because it has no built-in upgrade/rollback. Must not run `install` on production as an upgrade. We need a separate safe, reversible migration/rollback QA process validated in a scratch HOME first; preserve original hash and original private state; never overwrite the only recoverable copy.
 - Live GitHub-first 55/55 native CachyOS suite previously passed for identical candidate, but **real installer/upgrade/rollback in a scratch or actual deployment has not been run**, thus remaining QA BLOCKED. Never treat previous GitHub tests as proof of upgrade.
 **RELEASE_APPROVED=false; MASTER_QA=BLOCKED.**
+
+## User host v0.1.6 scratch install and overwrite protection — 31 October 2026
+
+User ran read-only-to-production test from SHA-verified exact `v0.1.6` ZIP with `HOME` redirected to a fresh temporary test home, and the production-installed regular launcher `v0.1.2` verified SHA256 `3cae3df60b657744740c69649469a4eb495f6a9659d4d5557a4cae4a94dcebce`:
+- Scratch `install` exit **0**, new scratch target matches candidate source bytes: **PASS**.
+- Replace scratch target bytes with original v0.1.2; rerun `install` exit **2**, scratch original bytes unchanged: **existing launcher overwrite protection PASS**.
+- Production original bytes unchanged after test: **PASS**.
+- Temporary scratch directory scheduled for cleanup; no live installation or private AI state migration performed.
+- Reversible atomic copy-upgrade/backup/rollback on scratch and actual post-upgrade recovery remain **NOT TESTED**; real gaming detector native non-Steam coverage gap still open, production release blocked.
+**MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
