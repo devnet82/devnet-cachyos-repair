@@ -63,3 +63,8 @@ User ran read-only aggregate diagnostics on `~/.local/share/devnet-safe-ai/openc
 - Flat top-level role query returned 0 because JSON record shapes differ; **not** evidence of zero assistant activity.
 - This is genuine OpenCode session metadata strongly suggesting a 30B subagent session was started; **still not proof of generated tokens/completed inference**. Next diagnostic aggregates completion reasons, error counts and token metadata for `devnet-heavy` records without reading prompts/text.
 - **30B result delivery FAIL, MASTER_QA BLOCKED, RELEASE_APPROVED false**; no installed launcher changes.
+
+## Host private OpenCode token diagnostic — 31 October 2026
+
+User's read-only local SQLite `session_message` aggregate, `devnet-heavy` scoped, reports **21 30B-associated messages**, `tokens` metadata in 20, **13,682 reported output tokens**, `finish=stop` 3, `finish=tool-calls` 17, `finish` missing 1, and **no `error` object** in these 21 records. Thus there is strong native runtime evidence of actual 30B token generation and agent tool usage, beyond just model configuration. Data covers recent 200 records (not proven confined to one run), so do **not** claim every token belongs to most recent attempt or that delegation was successful.
+The caller still reported **no usable returned specialist analysis**, tried an invalid Skill fallback, then presented invented or unverified analysis with exit 0. **TASK RESULT DELIVERY remains FAIL**, need read-only analysis of `session_part` task tool statuses/lengths without printing private prompts or content. Do not install or approve v0.1.3. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false**.
