@@ -83,6 +83,8 @@ jobs:
           apid=$!
           trap 'kill "$apid" "$spid" 2>/dev/null || true' EXIT
           sleep 3
+          echo 'DIRECT_PRE_SERVICE_DIAGNOSTIC:'
+          asuser python3 "$home/.local/bin/devnet-wine-idle-cleaner" status || true
           if ! asuser systemctl --user start devnet-wine-idle-cleaner.service; then
             asuser systemctl --user status devnet-wine-idle-cleaner.service --no-pager || true
             asuser journalctl --user -u devnet-wine-idle-cleaner.service -n 60 --no-pager || true
