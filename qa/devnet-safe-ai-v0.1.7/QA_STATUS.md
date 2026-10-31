@@ -131,3 +131,18 @@ User ran SHA256 verified exact `v0.1.7` ZIP `46134abe84b13ef4847e24183f671009244
 - Independently verified host's existing `~/.local/bin/devnet-safe-ai` bytes unchanged: `INSTALLED V0.1.2 UNCHANGED: PASS`.
 - User-reported harness output: `UPGRADE EXIT: 0`, `INTEGRATED UPGRADE AND BACKUP: PASS`, `ROLLBACK EXIT: 0`, `INTEGRATED ROLLBACK: PASS`, `INSTALLED V0.1.2 UNCHANGED: PASS`.
 **Scope:** This is actual CLI-driven upgrade/rollback on a scratch HOME with real filesystem and isolated state; **not** a production installation test, desktop shortcut integration, a machine crash/power-loss durability demonstration, or full independent Master QA acceptance. Full v0.1.7 release approval still requires automatic *real game launch mid-inference* interruption, investigation of invented unverified file-analysis claims and any other applicable integration checks. Do not claim 100% verified PASS. Original production v0.1.2 still installed. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## Live NMS mid-task auto-interruption test did not pass — 31 October 2026
+
+User performed full exact v0.1.7 test harness: started live 9B and then launched No Man's Sky via Steam. Raw output:
+```
+9B MODEL ACTIVE: True
+START NO MANS SKY THROUGH STEAM NOW
+GAME DETECTED: True STOP EXIT: 0 FORCED CLEANUP: False MODEL UNLOADED: True
+GUARD OUTPUT: [AI answer followed by] DEVNET RESULT AUDIT: PASS (new tool failures: 0; completed delegations: 0 ; required: False )
+V0.1.7 REAL GAME MID-TASK STOP: FAIL
+```
+**Do NOT claim real game auto-interruption PASS.** Crucial test-harness instrumentation gap: the harness did **not** record whether the OpenCode process was still alive (`p.poll() is None`) when the real game detector first became true. Thus a rapid naturally-completed AI task followed by game detection yields exit 0, no kill, unloaded model, and false test FAIL. Candidate source review confirms actual `run_sandbox` polls `gaming_now()` every 0.75 seconds **only while the OpenCode subprocess is live**, then returns exit 0; this does not prove a defect without verifying temporal overlap. Current result: **NOT VERIFIED / test FAIL, timing ambiguous**. Need valid follow-up with timestamps, unequivocal *game detected while AI subprocess still live*, continued active model, exit 2 with `Gaming detected`, model unload and no forced cleanup. If game only appears after AI already completed, report INCONCLUSIVE (no success, no software fix based on ambiguous evidence).
+Previously passed manual-sentinel mid-task interruption does not establish real automatic game interruption.
+Other outstanding: invented files in specialist summary and native non-Steam game detection gap, full Master QA blocked. User original v0.1.2 remains installed unchanged.
+**MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
