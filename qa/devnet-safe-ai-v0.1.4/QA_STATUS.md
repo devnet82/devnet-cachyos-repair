@@ -20,3 +20,11 @@ User's real v0.1.3 OpenCode 2.1.4 host session shows 21 qwen3-coder:30b messages
 - Persistent memory, real app GUI/QA workflow, user final acceptance: **NOT TESTED**.
 
 **MASTER_QA=BLOCKED. RELEASE_APPROVED=false. GitHub VM first; no production install.**
+
+## GitHub-hosted exact v0.1.4 VM verification — PASS LIMITED
+
+- Final workflow [41228164643](https://github.com/devnet82/devnet-cachyos-repair/actions/runs/41228164643) **all three jobs SUCCESS**: SHA256 verified deterministic archive rebuild, genuine booted CachyOS QEMU/KVM guest running **43/43 fresh unit/security regression checks**, unprivileged Bubblewrap isolation probes, independent evidence/scope gate, signature attestations. The guest result explicitly keeps MASTER_QA BLOCKED and RELEASE_APPROVED=false.
+- The first v0.1.4 VM attempts failed in the **CI harness**, not application tests: a stale pinned QEMU-helper raw URL (404) and a mistaken QEMU machine name `q43` instead of `q35`. Repaired harness by copying SHA-matched pinned commit blob `2c30d3ae5ee9626162d6caeca7cbe44143887a51` into the QA branch, checking it out in the VM job, and restoring `q35`. The v0.1.4 candidate checksum **did not change** across corrections.
+- **Scope limitation**: no actual 30B inference/handoff in the hosted VM; new host-CachyOS runtime doctor/write/delegation, active game interruption, memory unload, install and rollback remain NOT TESTED for v0.1.4. A completed unit/security test gate does not approve production release.
+
+**GITHUB_FIRST_TESTS=PASS_LIMITED; MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
