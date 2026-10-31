@@ -167,7 +167,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           root=/tmp/devnet-safe-v014-native
-          qemu-system-x86_64 -machine q43,accel=kvm -cpu host -m 4096 -smp 2 \
+          qemu-system-x86_64 -machine q35,accel=kvm -cpu host -m 4096 -smp 2 \
             -drive file="$root/cachyos-desktop-linux-260809.iso",media=cdrom,if=ide \
             -drive if=none,id=ctl,file="$root/control.img",format=raw \
             -device virtio-blk-pci,drive=ctl,serial=DEVNETCONTROL \
