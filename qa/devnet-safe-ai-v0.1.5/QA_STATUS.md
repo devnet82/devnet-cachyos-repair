@@ -24,3 +24,14 @@ Exact v0.1.5 archive SHA256: `fc572e7a1e1659f409a9d3a98f4f1926535515204cd43031b9
 - Earlier [run 41229794341](https://github.com/devnet82/devnet-cachyos-repair/actions/runs/41229794341) ended FAIL **after guest had produced a 46-test native result**, because workflow assertions still expected 43 (old suite count). CI harness-only correction updated both native and independent assertions; AI candidate bytes unchanged.
 - **Scope:** GitHub FIRST unit/OS-child/Bwrap checks PASS_LIMITED. No real OpenCode 9B, Ollama 30B or gaming/VR with this exact candidate in native VM, nor live user-host doctor/write/delegation, real VR-game preemption, Ollama unload, installed migration/rollback or full Master QA. All still require evidence.
 - **MASTER_QA=BLOCKED; RELEASE_APPROVED=false; GITHUB_FIRST=PASS_LIMITED.**
+
+## User's live CachyOS v0.1.5 test — 31 October 2026
+
+User ran exact SHA-verified uninstalled v0.1.5 ZIP `fc572e7a1e1659f409a9d3a98f4f1926535515204cd43031b9bee15198109512` on host:
+- `doctor`: **PASS**, printed sandbox, offline network, private workspace, models and subagent configuration OK.
+- `run` real 9B OpenCode Write: **PASS**, real tool created `DEVNET_V015_LIVE_QA.txt`, exact `grep -qx DEVNET_V015_SANDBOX_WRITE_PASS` succeeded; result tool audit passed with no failures.
+- User explicitly requested `Delegate to the real devnet-heavy specialist` for a two-worker counter analysis, but the coordinator **did not call** `subagent`; it answered itself. Result audit printed `PASS (new tool failures: 0; completed delegations: 0)`; process exited 0. **MANDATORY 30B HANDOFF ACCEPTANCE: FAIL**. The audit is structurally correct about completed tool calls but misleading when prompt explicitly demands delegation; cannot count missing work as a PASS. The answer described correct expected final counter 7, lost-update 6, but made other unsupported/overgeneralised claims about possible unsynchronised outcomes. No actual 30B call is evidenced for this run.
+- `ollama ps` immediately after only displayed `qwen3.5:9b`, 6.7GB GPU, 29-second TTL. After 40-second idle `ollama ps` list **empty**: **9B idle auto-unload PASS** (single observed case). Cannot claim **30B unload** on this run because 30B never ran.
+- No real gaming/VR activation, host launcher installation, rollback or full host Master QA evidence yet.
+
+**V015 USER HOST: doctor PASS, file-write PASS, 9B idle unload PASS; required 30B delegation FAIL. RESULT AUDIT falsely indicates task success despite a missed required action. MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
