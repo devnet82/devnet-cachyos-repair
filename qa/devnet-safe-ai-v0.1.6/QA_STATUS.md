@@ -126,3 +126,14 @@ User ran read-only-to-production test from SHA-verified exact `v0.1.6` ZIP with 
 - Temporary scratch directory scheduled for cleanup; no live installation or private AI state migration performed.
 - Reversible atomic copy-upgrade/backup/rollback on scratch and actual post-upgrade recovery remain **NOT TESTED**; real gaming detector native non-Steam coverage gap still open, production release blocked.
 **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## User host isolated atomic upgrade, interruption and rollback QA — 31 October 2026
+
+User executed exact SHA-pinned v0.1.6 archive vs original installed v0.1.2 launcher bytes/mode in a fresh temporary directory. Observed independently checkable assertions:
+- `ORIGINAL BACKUP: PASS` — scratch backup matches original bytes.
+- `INTERRUPTED UPGRADE PRESERVATION: PASS` — incomplete staged candidate discarded and scratch target remained original.
+- `ATOMIC SCRATCH UPGRADE: PASS` — `os.replace` changed scratch target to exact v0.1.6 bytes, preserving original mode.
+- `ROLLBACK AND PERMISSIONS: PASS` — exact original v0.1.2 bytes and mode restored to scratch target, backup remained unchanged.
+- `PRODUCTION V0.1.2 UNCHANGED: PASS` — original installed file unchanged.
+
+**Scope limitation:** This is a standalone simulation of an atomic replacement sequence, **not** the released app's integrated updater/uninstaller, not a power-loss/crash durability test, and not the full config/private-state desktop shortcut upgrade. It does not verify directory fsync or automatic recovery after a crash during atomic swap. The integrated upgrade + rollback logic must be independently implemented and tested as a **new exact revision**, GitHub-first all 100% applicable tests, then host only. Existing production installed v0.1.2 remains protected. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
