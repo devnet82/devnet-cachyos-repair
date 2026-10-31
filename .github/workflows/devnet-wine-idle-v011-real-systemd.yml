@@ -42,12 +42,16 @@ jobs:
           sudo loginctl enable-linger "$user"
           sudo systemctl start "user@$uid.service"
           for i in $(seq 1 20); do
-            test -S "/run/user/$uid/bus" && break
+            test -S "/run/user/$uid/systemd/private" && break
             sleep 1
           done
-          test -S "/run/user/$uid/bus"
+          if ! test -S "/run/user/$uid/systemd/private"; then
+            sudo systemctl status "user@$uid.service" --no-pager || true
+            sudo ls -la "/run/user/$uid" "/run/user/$uid/systemd" || true
+            exit 1
+          fi
           asuser() {
-            sudo -u "$user" env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@"
+            sudo -u "$user" env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/systemd/private" "$@"
           }
           asuser systemctl --user show-environment >/dev/null
           echo 'REAL_SYSTEMD_USER_MANAGER_PASS' | tee "$ev/manager.log"
