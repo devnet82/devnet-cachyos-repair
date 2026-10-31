@@ -79,3 +79,11 @@ User executed exact installed agent v0.4.4 `process_is_game` against five repres
 ## User-host real game-detector observation — 31 October 2026
 
 After assistant instructed the user to launch an actual Steam game, user executed the unchanged native QA agent v0.4.4 `gaming_now()` on their CachyOS host and observed **`REAL GAME DETECTED: True`**. This is positive **in-situ gaming guard activation**, versus earlier `False` when no game was running. However `gaming_now` also returns True for `gaming-on` and `stop-all` manual sentinels and for non-game heuristic matches, so **automatic match specifically attributable to a running game's /proc entry is not yet independently established**. Next check: inspect active sentinels and matched /proc process *names only*, without printing command lines or private arguments. Original native non-Steam coverage hole remains; no installed launcher changes. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## User-host automatic gaming detection confirmed with real Steam/Proton process — 31 October 2026
+
+User kept a real game (No Man's Sky, `NMS.exe`) running and executed a read-only verification against the currently installed v0.4.4 QA agent's `process_is_game` and `gaming_now`.
+- `MANUAL FLAGS ACTIVE: False` (both `gaming-on` and `stop-all` absent).
+- `MATCHED GAME PROCESSES:` `NMS.exe`, `lsass.exe`, `plugplay.exe`, `pv-adverb`, `python3`, `reaper`, `rpcss.exe`, `srt-bwrap`, `steam.exe`, `svchost.exe`, `tabtip.exe`, `winedevice.exe`, `wineserver`, `xalia.exe`.
+- `AUTOMATIC DETECTION: True`; `CURRENT GAMING DETECTOR: True`.
+This **confirms a genuine game process is matched automatically with manual override absent**, including the actual game's executable `NMS.exe`. Auxiliary `python3`, `reaper`, `srt-bwrap`, `steam.exe` and Proton service processes are also matched in this real gaming session, likely via Steam executable path/arguments; **false-positive game-stopped/idle detection remains UNVERIFIED**. The test establishes detector activation during real gaming, but not yet whether game launch automatically interrupts a concurrently-running AI (the latter was earlier tested only by manual sentinel). Native non-Steam game coverage still FAIL/NOT IMPLEMENTED. No candidate/installation changes. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
