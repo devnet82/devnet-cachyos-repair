@@ -4,7 +4,7 @@ on:
   push:
     branches: [qa/devnet-safe-ai-v0.1.3-reasoning-fix]
     paths:
-      - 'qa/devnet-safe-ai-v0.1.3/**'
+      - 'qa/devnet-safe-ai-v0.1.3/candidate.zip'
       - '.github/workflows/devnet-safe-ai-v013-native-cachyos.yml'
   workflow_dispatch:
 
