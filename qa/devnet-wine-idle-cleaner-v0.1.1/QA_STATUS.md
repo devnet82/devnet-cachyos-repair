@@ -1,0 +1,8 @@
+# Devnet Wine Idle Cleaner v0.1.1 — QA BLOCKED
+Exact unmodified candidate ZIP SHA256: `f11cd9bd6e5ea0f4738ddf472be9ff8c79dcfa5c2fea85a843ca1a2d8bf8889b`.
+Safety fix for live v0.1.0 Fusion residual processes: `explorer.exe /desktop`, `ADPClientService.exe`, `conhost.exe --headless`, and `MicrosoftEdgeUpdate.exe /c`. Recognition requires matching exact/anchored command lines for the specific Fusion WINEPREFIX. All unrecognised processes still block. To arm cleanup, the timer must have seen a genuine non-helper application in the same Wine-server PID/starttime session; a restarted server disarms. After verified residual processes are unchanged for 180 seconds, two real scans are required before issuing `WINEPREFIX=<exact Fusion prefix> wineserver -k`. This can interrupt background updaters and remains an unapproved candidate.
+
+Local exact extracted ZIP: 29/29 freshly executed behaviour/process tests PASS, 4/4 freshly executed disposable non-root install/rollback tests PASS. Checksum and syntax PASS. Host Fusion active-app and closed-app baseline only tested on v0.1.0; no real host Wine shutdown on v0.1.1.
+GitHub-first QA workflows staged: `.github/workflows/devnet-wine-idle-v011-exact.yml` and `.github/workflows/devnet-wine-idle-v011-native-cachyos.yml`. Need `qa/devnet-wine-idle-cleaner-v0.1.1/candidate.zip` uploaded with SHA256 before runs pass. GitHub hosted native CachyOS tests, host live Fusion lifecycle, update-in-progress guard, systemd timer, safe isolation, and host rollback remain NOT TESTED on v0.1.1.
+
+**MASTER_QA=BLOCKED; RELEASE_APPROVED=false; NO HOST INSTALL/ENABLE.**
