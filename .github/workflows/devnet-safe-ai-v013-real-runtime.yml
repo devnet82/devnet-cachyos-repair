@@ -35,10 +35,10 @@ jobs:
           set -Eeuo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends bubblewrap socat curl ca-certificates
-          npm install -g @opencode/cli@2.1.4
+          npm install -g --allow-scripts=@opencode/cli @opencode/cli@2.1.4
           command -v opencode
           opencode --version | tee evidence/opencode-version.log
-          grep -q '^2[.]1[.]4' evidence/opencode-version.log
+          grep -q 'opencode v2[.]1[.]4' evidence/opencode-version.log
           command -v bwrap; command -v socat
           echo 'REAL_OPENCODE_2_1_4_INSTALLED'
       - name: Install and start REAL local Ollama on loopback only
@@ -124,7 +124,7 @@ jobs:
           echo '8a55f4dbc9e939b04b798b7176ed8ab10b0439a88fc7609f134b528d1d3daf7b  qa/devnet-safe-ai-v0.1.3/candidate.zip' | sha256sum -c -
           grep -q 'Ran 35 tests' evidence/fresh-unit.log
           grep -qx 'OK' evidence/fresh-unit.log
-          grep -q '^2[.]1[.]4' evidence/opencode-version.log
+          grep -q 'opencode v2[.]1[.]4' evidence/opencode-version.log
           grep -F 'PASS: OpenCode sandbox, offline network, private workspace, models and subagent config' evidence/real-doctor.log
           grep -q 'qwen3.5:9b' evidence/models.log
           grep -q 'DEVNET_REAL_OPENCODE_9B_WRITE_PASS' evidence/real-file-write.log
