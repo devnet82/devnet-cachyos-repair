@@ -45,7 +45,7 @@ jobs:
               for name in ('monitor.py','test_monitor.py','test_install.py'):
                   compile(z.read(prefix+name),name,'exec')
               all_text='\n'.join(z.read(prefix+name).decode() for name in expected if name!='SHA256SUMS')
-              assert not re.search(r'/home/(?!agent\b)[a-zA-Z0-9_.-]+',all_text)
+              assert re.findall(r'/home/(?!agent\b)[a-zA-Z0-9_.-]+',all_text)==['/home/test'], 'only intentional mock HOME fixture allowed'
               assert not re.search(r'-----BEGIN [^-]*PRIVATE KEY|github_pat_[A-Za-z0-9_]{15,}|gh[psu]_[A-Za-z0-9]{15,}',all_text)
           print('EXACT_ARCHIVE_SHA256_PASS; PRIVACY_PREFLIGHT_PASS; GITHUB_VM_NOT_YET_TESTED')
           PY
