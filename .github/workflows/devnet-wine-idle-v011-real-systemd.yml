@@ -83,14 +83,26 @@ jobs:
           apid=$!
           trap 'kill "$apid" "$spid" 2>/dev/null || true' EXIT
           sleep 3
-          asuser systemctl --user start devnet-wine-idle-cleaner.service
+          if ! asuser systemctl --user start devnet-wine-idle-cleaner.service; then
+            asuser systemctl --user status devnet-wine-idle-cleaner.service --no-pager || true
+            asuser journalctl --user -u devnet-wine-idle-cleaner.service -n 60 --no-pager || true
+            sudo journalctl -u "user@$uid.service" -n 40 --no-pager || true
+            echo "REAL_USER_SERVICE_START_FAILED" >&2
+            exit 1
+          fi
           asuser python3 "$home/.local/bin/devnet-wine-idle-cleaner" status | tee "$ev/active.log"
           grep -qx 'WINE CLEANER: APP_RUNNING' "$ev/active.log"
           test ! -e "$home/.local/state/devnet-wine-idle-cleaner/stop-marker"
           echo 'REAL_USER_SERVICE_ACTIVE_APP_PROTECTION_PASS' | tee "$ev/active-pass.log"
           sudo pkill -u "$user" -x fusion360.exe
           sleep 2
-          asuser systemctl --user start devnet-wine-idle-cleaner.service
+          if ! asuser systemctl --user start devnet-wine-idle-cleaner.service; then
+            asuser systemctl --user status devnet-wine-idle-cleaner.service --no-pager || true
+            asuser journalctl --user -u devnet-wine-idle-cleaner.service -n 60 --no-pager || true
+            sudo journalctl -u "user@$uid.service" -n 40 --no-pager || true
+            echo "REAL_USER_SERVICE_START_FAILED" >&2
+            exit 1
+          fi
           asuser python3 "$home/.local/bin/devnet-wine-idle-cleaner" status | tee "$ev/waiting.log"
           grep -qx 'WINE CLEANER: WAITING' "$ev/waiting.log"
           test ! -e "$home/.local/state/devnet-wine-idle-cleaner/stop-marker"
