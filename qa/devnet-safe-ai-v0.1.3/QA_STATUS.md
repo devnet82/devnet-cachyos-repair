@@ -53,3 +53,13 @@ Local/offline extracted-archive unit regressions: **35/35 PASS**. Real OpenCode 
 - Similar upstream OpenCode issues: [#18423](https://github.com/anomalyco/opencode/issues/18423) (empty subagent text with Ollama) and [#24447](https://github.com/anomalyco/opencode/issues/24447) (missing result diagnostics), but root cause not established for this run. Avoid blaming Ollama or tweaking models until reading private-state session metadata or capture trusted gateway model-request evidence.
 - **Next narrow read-only host diagnostic:** inspect counts of `qwen3-coder:30b` and `devnet-heavy` inside the Safe AI private OpenCode SQLite session database, without printing prompts/credentials. Then reproduce with proper model-usage evidence on GitHub first, fix fail-closed false-success behaviour, run every applicable QA check afresh.
 **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## Host OpenCode private SQLite metadata diagnostic — 31 October 2026
+
+User ran read-only aggregate diagnostics on `~/.local/share/devnet-safe-ai/opencode-home/.local/share/opencode/opencode.db`:
+- `session_message` recent records: 72.
+- 21 records identify nested model `{'id':'qwen3-coder:30b','providerID':'ollama','variant':'default'}`; 22 identify `qwen3.5:9b` and 29 have no model.
+- Agent counts are 21 `devnet-heavy`, 29 `build`, 22 no agent.
+- Flat top-level role query returned 0 because JSON record shapes differ; **not** evidence of zero assistant activity.
+- This is genuine OpenCode session metadata strongly suggesting a 30B subagent session was started; **still not proof of generated tokens/completed inference**. Next diagnostic aggregates completion reasons, error counts and token metadata for `devnet-heavy` records without reading prompts/text.
+- **30B result delivery FAIL, MASTER_QA BLOCKED, RELEASE_APPROVED false**; no installed launcher changes.
