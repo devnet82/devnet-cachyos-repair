@@ -121,3 +121,13 @@ BLOCKED: Gaming detected; sandbox stopped and models unloaded
 V0.1.7 MID-TASK INTERRUPTION: PASS
 ```
 **PASS** for real active 9B inference stopped by flag and no resident Ollama models ~3 seconds after stop. Exit code 2 confirms fail-closed behaviour. This does **not** establish automatic game-process detection *during* active inference (real No Man's Sky active launch before start was independently PASS), actual VR start, or a 30B interruption mid-delegation. Installed host v0.1.2 unchanged; required integrated upgrade/rollback and release evidence still pending. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## User-host real v0.1.7 integrated upgrade and rollback commands — scratch HOME PASS, 31 October 2026
+
+User ran SHA256 verified exact `v0.1.7` ZIP `46134abe84b13ef4847e24183f6710092448e6c8409dd4b1a5991e6b7b343ff6` uninstalled in a temporary HOME, with a regular file byte-for-byte copy of the real installed v0.1.2 launcher (SHA256 `3cae3df60b657744740c69649469a4eb495f6a9659d4d5557a4cae4a94dcebce`) and the trusted gaming-guard agent copy.
+- Real v0.1.7 `upgrade` command exit 0, printed `UPGRADE PASS: /tmp/.../.local/bin/devnet-safe-ai`. Scratch target bytes independently compared against exact v0.1.7 source, **PASS**.
+- Integrated backup location `/tmp/.../.local/share/devnet-safe-ai/launcher-backups/devnet-safe-ai-v0.1.2-original.py`, independently compared original bytes, **PASS**.
+- Real upgraded launcher `rollback` command exit 0, printed `ROLLBACK PASS: verified v0.1.2 original restored`. Scratch target independently verified original bytes and executable permission mode, **PASS**.
+- Independently verified host's existing `~/.local/bin/devnet-safe-ai` bytes unchanged: `INSTALLED V0.1.2 UNCHANGED: PASS`.
+- User-reported harness output: `UPGRADE EXIT: 0`, `INTEGRATED UPGRADE AND BACKUP: PASS`, `ROLLBACK EXIT: 0`, `INTEGRATED ROLLBACK: PASS`, `INSTALLED V0.1.2 UNCHANGED: PASS`.
+**Scope:** This is actual CLI-driven upgrade/rollback on a scratch HOME with real filesystem and isolated state; **not** a production installation test, desktop shortcut integration, a machine crash/power-loss durability demonstration, or full independent Master QA acceptance. Full v0.1.7 release approval still requires automatic *real game launch mid-inference* interruption, investigation of invented unverified file-analysis claims and any other applicable integration checks. Do not claim 100% verified PASS. Original production v0.1.2 still installed. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
