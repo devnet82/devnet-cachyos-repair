@@ -1,0 +1,169 @@
+name: Wine cleaner v012 actual user-systemd timer and rollback (no release)
+on:
+  push:
+    branches: [qa/devnet-wine-idle-cleaner-v0.1.2]
+    paths:
+      - '.github/workflows/devnet-wine-idle-v012-real-systemd.yml'
+      - 'qa/devnet-wine-idle-cleaner-v0.1.2/build_exact.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-user-timer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - name: Reconstruct and check exact v012 ZIP, then fresh 36 package tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/wine-evidence
+          python3 qa/devnet-wine-idle-cleaner-v0.1.2/build_exact.py
+          echo '5cf355189c7ab0a815260724a9881bb729d69c112c4ae603defe78b1ad678d5d  /tmp/devnet-v012-git-simulation/devnet-wine-idle-cleaner-v0.1.2-QA-BLOCKED.zip' | sha256sum -c -
+          cd /tmp/devnet-v012-git-simulation/devnet-wine-idle-cleaner-v0.1.2-QA-BLOCKED
+          sha256sum -c SHA256SUMS
+          python3 test_monitor.py > /tmp/wine-evidence/monitor.log 2>&1
+          sudo python3 test_install.py > /tmp/wine-evidence/installer.log 2>&1
+          grep -q 'Ran 32 tests' /tmp/wine-evidence/monitor.log
+          grep -q 'Ran 4 tests' /tmp/wine-evidence/installer.log
+          grep -qx OK /tmp/wine-evidence/monitor.log
+          grep -qx OK /tmp/wine-evidence/installer.log
+          echo 'EXACT_V012_36_FRESH_PACKAGE_TESTS_PASS'
+      - name: Disposable user actual systemd timer, app protection, grace and rollback
+        timeout-minutes: 12
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          user=devnetwineqa
+          home=/home/devnetwineqa
+          pkg=/tmp/devnet-v012-git-simulation/devnet-wine-idle-cleaner-v0.1.2-QA-BLOCKED
+          ev=/tmp/wine-evidence
+          sudo useradd -m -s /bin/bash "$user"
+          uid=$(id -u "$user")
+          sudo loginctl enable-linger "$user"
+          sudo systemctl start "user@$uid.service"
+          for i in $(seq 1 80); do
+            if sudo -u "$user" test -S "/run/user/$uid/systemd/private"; then break; fi
+            sleep 1
+          done
+          sudo -u "$user" test -S "/run/user/$uid/systemd/private"
+          asuser() {
+            sudo -u "$user" env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@"
+          }
+          for i in $(seq 1 20); do
+            if asuser systemctl --user show-environment >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          asuser systemctl --user show-environment >/dev/null
+          echo 'REAL_SYSTEMD_USER_MANAGER_PASS' | tee "$ev/manager.log"
+          prefix="$home/.autodesk_fusion/wineprefixes/default-2705-wine1110-test"
+          other="$home/.wine-unrelated-qa"
+          wine="$home/.local/wine-runners/wine-11.10-staging-tkg-amd64/bin/wineserver"
+          asuser mkdir -p "$prefix" "$other" "$(dirname "$wine")"
+          asuser tee "$wine" >/dev/null <<'WINE'
+          #!/bin/sh
+          [ "$1" = "-k" ] || exit 90
+          printf '%s\n' "$WINEPREFIX" >> "$HOME/.local/state/devnet-wine-idle-cleaner/stop-marker"
+          WINE
+          sudo chmod 0755 "$wine"
+          asuser bash "$pkg/install.sh" | tee "$ev/install.log"
+          asuser systemctl --user is-enabled --quiet devnet-wine-idle-cleaner.timer
+          asuser systemctl --user is-active --quiet devnet-wine-idle-cleaner.timer
+          cat > /tmp/devnet-wine-fixture.py <<'PY'
+          import ctypes,sys,time
+          assert ctypes.CDLL(None).prctl(15,ctypes.c_char_p(sys.argv[1].encode()),0,0,0)==0
+          while True: time.sleep(1)
+          PY
+          chmod 0644 /tmp/devnet-wine-fixture.py
+          asuser env WINEPREFIX="$prefix" python3 /tmp/devnet-wine-fixture.py wineserver &
+          spid=$!
+          asuser env WINEPREFIX="$prefix" python3 /tmp/devnet-wine-fixture.py fusion360.exe &
+          apid=$!
+          asuser env WINEPREFIX="$other" python3 /tmp/devnet-wine-fixture.py wineserver &
+          opid=$!
+          trap 'kill "$apid" "$spid" "$opid" 2>/dev/null || true' EXIT
+          sleep 3
+          if ! asuser systemctl --user start devnet-wine-idle-cleaner.service; then
+            asuser systemctl --user status devnet-wine-idle-cleaner.service --no-pager || true
+            asuser journalctl --user -u devnet-wine-idle-cleaner.service -n 40 --no-pager || true
+            exit 1
+          fi
+          asuser "$home/.local/bin/devnet-wine-idle-cleaner" status | tee "$ev/active.log"
+          grep -qx 'WINE CLEANER: APP_RUNNING' "$ev/active.log"
+          test ! -e "$home/.local/state/devnet-wine-idle-cleaner/stop-marker"
+          echo 'REAL_SERVICE_PROTECTS_ACTIVE_APP_PASS' | tee "$ev/protected.log"
+          sudo pkill -u "$user" -x fusion360.exe
+          sleep 2
+          if ! asuser systemctl --user start devnet-wine-idle-cleaner.service; then
+            asuser systemctl --user status devnet-wine-idle-cleaner.service --no-pager || true
+            asuser journalctl --user -u devnet-wine-idle-cleaner.service -n 40 --no-pager || true
+            exit 1
+          fi
+          asuser "$home/.local/bin/devnet-wine-idle-cleaner" status | tee "$ev/waiting.log"
+          grep -qx 'WINE CLEANER: WAITING' "$ev/waiting.log"
+          test ! -e "$home/.local/state/devnet-wine-idle-cleaner/stop-marker"
+          echo 'REAL_SERVICE_STARTS_GRACE_DELAY_PASS' | tee "$ev/grace.log"
+          # No further manual service activation: only actual systemd timer may invoke it.
+          marker="$home/.local/state/devnet-wine-idle-cleaner/stop-marker"
+          triggered=0
+          for i in $(seq 1 84); do
+            if test -f "$marker"; then triggered=1; break; fi
+            sleep 5
+          done
+          if test "$triggered" -ne 1; then
+            asuser systemctl --user status devnet-wine-idle-cleaner.timer --no-pager || true
+            asuser journalctl --user -u devnet-wine-idle-cleaner.service -n 50 --no-pager || true
+            echo 'AUTO_TIMER_NOT_VERIFIED' >&2
+            exit 1
+          fi
+          grep -Fx "$prefix" "$marker"
+          if grep -Fx "$other" "$marker"; then echo 'UNRELATED_PREFIX_TOUCHED' >&2; exit 1; fi
+          kill -0 "$opid"
+          echo 'REAL_TIMER_180_SECOND_GRACE_EXACT_PREFIX_REQUEST_AND_OTHER_PREFIX_ISOLATION_PASS' | tee "$ev/automatic.log"
+          asuser bash "$pkg/uninstall.sh" | tee "$ev/uninstall.log"
+          test ! -e "$home/.local/bin/devnet-wine-idle-cleaner"
+          test ! -e "$home/.config/systemd/user/devnet-wine-idle-cleaner.timer"
+          test -f "$home/.config/devnet-wine-idle-cleaner/prefixes.json"
+          test -d "$prefix" && test -d "$other"
+          test -x "$wine"
+          if asuser systemctl --user is-active --quiet devnet-wine-idle-cleaner.timer; then echo 'TIMER_LEFT_ACTIVE' >&2; exit 1; fi
+          echo 'REAL_SYSTEMD_UNINSTALL_ROLLBACK_PRESERVATION_PASS' | tee "$ev/rollback.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: devnet-wine-v012-real-user-timer-evidence
+          path: /tmp/wine-evidence/
+          if-no-files-found: warn
+  independent-scope-gate:
+    needs: real-user-timer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@v4
+        with:
+          name: devnet-wine-v012-real-user-timer-evidence
+          path: evidence
+      - name: Independent exact bytes and real lifecycle evidence required
+        run: |
+          set -Eeuo pipefail
+          python3 qa/devnet-wine-idle-cleaner-v0.1.2/build_exact.py
+          echo '5cf355189c7ab0a815260724a9881bb729d69c112c4ae603defe78b1ad678d5d  /tmp/devnet-v012-git-simulation/devnet-wine-idle-cleaner-v0.1.2-QA-BLOCKED.zip' | sha256sum -c -
+          grep -q 'Ran 32 tests' evidence/monitor.log
+          grep -q 'Ran 4 tests' evidence/installer.log
+          grep -qx OK evidence/monitor.log
+          grep -qx OK evidence/installer.log
+          grep -qx REAL_SYSTEMD_USER_MANAGER_PASS evidence/manager.log
+          grep -qx 'WINE CLEANER: APP_RUNNING' evidence/active.log
+          grep -qx 'WINE CLEANER: WAITING' evidence/waiting.log
+          grep -qx REAL_SERVICE_PROTECTS_ACTIVE_APP_PASS evidence/protected.log
+          grep -qx REAL_SERVICE_STARTS_GRACE_DELAY_PASS evidence/grace.log
+          grep -qx REAL_TIMER_180_SECOND_GRACE_EXACT_PREFIX_REQUEST_AND_OTHER_PREFIX_ISOLATION_PASS evidence/automatic.log
+          grep -qx REAL_SYSTEMD_UNINSTALL_ROLLBACK_PRESERVATION_PASS evidence/rollback.log
+          echo 'GITHUB_REAL_SYSTEMD_TIMER_INTEGRATION_PASS_LIMITED'
+          echo 'REAL_HOST_AUTOMATION=NOT_TESTED'
+          echo 'MASTER_QA=BLOCKED'
+          echo 'RELEASE_APPROVED=false'
