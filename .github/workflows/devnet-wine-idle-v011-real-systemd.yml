@@ -42,10 +42,10 @@ jobs:
           sudo loginctl enable-linger "$user"
           sudo systemctl start "user@$uid.service"
           for i in $(seq 1 110); do
-            test -S "/run/user/$uid/systemd/private" && break
+            sudo -u "$user" test -S "/run/user/$uid/systemd/private" && break
             sleep 1
           done
-          if ! test -S "/run/user/$uid/systemd/private"; then
+          if ! sudo -u "$user" test -S "/run/user/$uid/systemd/private"; then
             sudo systemctl status "user@$uid.service" --no-pager || true
             sudo ls -la "/run/user/$uid" "/run/user/$uid/systemd" || true
             exit 1
