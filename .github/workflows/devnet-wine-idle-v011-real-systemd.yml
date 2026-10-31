@@ -108,6 +108,24 @@ jobs:
             asuser systemctl --user status devnet-wine-idle-cleaner.service --no-pager || true
             asuser journalctl --user -u devnet-wine-idle-cleaner.service -n 60 --no-pager || true
             sudo journalctl -u "user@$uid.service" -n 40 --no-pager || true
+            echo '=== Isolated CI-only unit property A/B diagnostics; NEVER enabled on host ==='
+            for variant in 1 2 3; do
+              case "$variant" in
+                1) change='NoNewPrivileges=no' ;;
+                2) change='ProtectHome=no' ;;
+                3) change='ProtectSystem=no' ;;
+              esac
+              printf '[Service]\n%s\n' "$change" | asuser tee "$home/.config/systemd/user/devnet-wine-idle-cleaner.service.d/20-ci-only-test.conf" >/dev/null
+              asuser systemctl --user daemon-reload
+              asuser systemctl --user reset-failed devnet-wine-idle-cleaner.service || true
+              echo "CI_AB_TEST: $change"
+              if asuser systemctl --user start devnet-wine-idle-cleaner.service; then
+                echo "CI_AB_RESULT: $change SERVICE_EXECUTED"
+              else
+                echo "CI_AB_RESULT: $change SERVICE_FAILED"
+              fi
+              asuser journalctl --user -u devnet-wine-idle-cleaner.service -n 12 --no-pager || true
+            done
             echo "REAL_USER_SERVICE_START_FAILED" >&2
             exit 1
           fi
