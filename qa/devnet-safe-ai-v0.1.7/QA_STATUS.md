@@ -103,3 +103,6 @@ BLOCKED: Gaming/stop-all is active
 V0.1.7 REAL GAME START BLOCK: PASS
 ```
 Thus **real game detection and fail-closed refusal to start AI on exact v0.1.7 PASS**; no flag-based simulation and no installed launch change. This establishes startup gaming block but **not** mid-inference automatic game activation, process termination and 9B/30B model unload for v0.1.7, native non-Steam game coverage, or production integrated upgrade/rollback acceptance. No release permission. `MASTER_QA=BLOCKED; RELEASE_APPROVED=false.`
+
+## User host v0.1.7 mid-task guard precondition blocked — 31 October 2026
+User's attempt to run exact candidate mid-inference gaming-flag stop/unload test terminated safely before OpenCode launch at `assert not m.gaming_now(), "CLOSE GAMES FIRST"`. This means trusted host game guard returned True before the run. The test did **NOT** create its temporary gaming-on flag, did **NOT** launch an AI job, and collected **NO** inference/stop/unload results. It is **BLOCKED precondition**, not PASS or FAIL for the intended mid-task test. Next: read-only inspect manual flags plus matched /proc process names without printing full arguments or altering any processes. No installed launch change. MASTER_QA=BLOCKED; RELEASE_APPROVED=false.
