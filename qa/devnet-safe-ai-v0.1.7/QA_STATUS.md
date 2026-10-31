@@ -33,3 +33,12 @@ Downloaded and inspected *actual uploaded GitHub guest evidence* from failed run
 - Fixed workflow *only* in commit `4a0eb51a18a52b5ca17bcd4b04a7f5edbaba3f8c`: replace escaped `\\n` tokens with real line breaks, run `useradd` then `sudo -u devnet-qaisolated python3 test_devnet_safe_ai_v0.1.7.py`. Verifies exactly one useradd and no escaped shell newline artifacts. Did **not** change v0.1.7 candidate ZIP SHA256 `46134abe84b13ef4847e24183f6710092448e6c8409dd4b1a5991e6b7b343ff6`.
 - New GitHub-first native CachyOS rerun [41235364596](https://github.com/devnet82/devnet-cachyos-repair/actions/runs/41235364596) **IN PROGRESS** at last check. Independent evidence gate pending, **do not approve/install** v0.1.7 based on failed prior runs.
 **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## Corrected GitHub-FIRST native CachyOS 70/70 + independent evidence PASS — 31 October 2026
+
+The user's GitHub screenshot shows SUCCESS for all 3 jobs. Independently checked exact run [41235364596](https://github.com/devnet82/devnet-cachyos-repair/actions/runs/41235364596) using GitHub job state and the actual GitHub Actions logs:
+1. `verify-exact-private-safe-package`: **success**. Deterministic reconstructed candidate hash `46134abe84b13ef4847e24183f6710092448e6c8409dd4b1a5991e6b7b343ff6`.
+2. `real-cachyos-vm-70-regressions`: **success**. Actual CachyOS ISO checksum verified, QEMU guest booted, non-root `devnet-qaisolated` test runner actually executed. Job log contains `GUEST_INSTALL_SCRIPT_STARTED` and `GITHUB_CACHYOS_70_OF_70_TESTS_PASS_LIMITED_FULL_MASTER_QA_BLOCKED`; native bwrap filesystem/network sandbox security also passes.
+3. `independent-evidence-and-scope-gate`: **success**. GitHub attestations [62179385](https://github.com/devnet82/devnet-cachyos-repair/attestations/62179385) and [62179389](https://github.com/devnet82/devnet-cachyos-repair/attestations/62179389) published to Sigstore transparency log; evidence and scope receipt artifacts captured.
+This passes the required **GitHub-first CI gate only**. The independent scope explicitly states actual OpenCode/Ollama inside bwrap, 30B live switching, host installation, VM/host Master QA remain NOT TESTED; release BLOCKED. Next gate is live user's own CachyOS KVM QA VM, then host exact v0.1.7 integrated workflow, including fresh 9B/30B/gaming interruption/recovery, with no inheritance from v0.1.6 test results. Existing production v0.1.2 remains unchanged.
+**MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
