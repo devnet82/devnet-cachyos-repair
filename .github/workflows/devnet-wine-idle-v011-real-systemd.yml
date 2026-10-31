@@ -41,7 +41,7 @@ jobs:
           uid=$(id -u "$user")
           sudo loginctl enable-linger "$user"
           sudo systemctl start "user@$uid.service"
-          for i in $(seq 1 20); do
+          for i in $(seq 1 110); do
             test -S "/run/user/$uid/systemd/private" && break
             sleep 1
           done
@@ -51,8 +51,12 @@ jobs:
             exit 1
           fi
           asuser() {
-            sudo -u "$user" env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/systemd/private" "$@"
+            sudo -u "$user" env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@"
           }
+          for i in $(seq 1 30); do
+            if asuser systemctl --user show-environment >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
           asuser systemctl --user show-environment >/dev/null
           echo 'REAL_SYSTEMD_USER_MANAGER_PASS' | tee "$ev/manager.log"
           prefix="$home/.autodesk_fusion/wineprefixes/default-2705-wine1110-test"
