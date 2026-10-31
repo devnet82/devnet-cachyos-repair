@@ -10,6 +10,6 @@ Changes staged outside this repository, without installation:
 - Make OpenCode V2 edit permissions compatible with location-relative paths; retain external-directory denial, Bubblewrap workspace mount, state/system/secret denials.
 - Keep 30B model and native Ollama inference payloads unchanged.
 
-Local/offline extracted-archive unit regressions: **35/35 PASS**. Real OpenCode and Ollama runtime **NOT TESTED**. GitHub-native test of exact archive **NOT TESTED** because the archive has not been uploaded to the branch. Native CachyOS VM, host installation, model handoff, file creation, sandbox escape, gaming pause, rollback, independent Master QA gate **NOT TESTED**. Prior observed file-write acceptance: **FAIL**.
+Local/offline extracted-archive unit regressions: **35/35 PASS**. Real OpenCode and Ollama runtime **NOT TESTED**. GitHub-hosted Ubuntu exact-archive 35-test run **PASS_LIMITED** (run 41211385269, uploaded SHA256 candidate confirmed), including deterministic independent scope gate. GitHub-hosted native CachyOS VM unit scope is **IN_PROGRESS** (run 41211497089), not yet a PASS. Native CachyOS VM, host installation, model handoff, file creation, sandbox escape, gaming pause, rollback, independent Master QA gate **NOT TESTED**. Prior observed file-write acceptance: **FAIL**.
 
 **RELEASE_APPROVED=false; MASTER_QA=BLOCKED.** No current launcher, OpenCode config, or Ollama config was modified. Do not promote/merge until genuine GitHub-first and host QA tests are executed on the exact candidate with independent evidence.
