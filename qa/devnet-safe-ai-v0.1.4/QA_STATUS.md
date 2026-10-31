@@ -40,3 +40,11 @@ User obtained exact v0.1.4 candidate and ran uninstalled `doctor` and `run` via 
 - **Explicit scope**: mechanics of completing real 9B→subagent→9B handoff PASS_LIMITED, CLI result audit PASS, answer factual grounding FAIL, no user-endorsed final acceptance or broad Master QA; `RESULT AUDIT: PASS` covers tool completion, not semantic QA. Existing launcher not replaced.
 - **NEXT**: independently inspect last completed `subagent` tool return and 30B model metadata for the specific session, distinguish specialist errors from coordinator rewriting. Add semantic/evidence fail-closed acceptance to task-specific QA without hallucinating benchmarks; rerun all candidate regression tests only if the artifact changes.
 **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## Exact returned specialist content inspected — user host, 31 October 2026
+
+User queried the newest completed `subagent` tool state. `status=completed`, structured result length **3081** chars, beginning with a `<subagent ... state="completed">` text block. This verifies that the specialist's actual result **was delivered to the 9B caller**.
+- Specialist described two workers each reading 5, incrementing locally to 6, then both writing 6. Mathematically the correct result without a lost update is 7, whereas 9B's displayed summary incorrectly said 10. The visible snippet does **not** prove the source of every statement in later portions of the specialist message (only the first 1500 chars were displayed).
+- Specialist wrote "I've created two C programs" and "Let's compile the programs using a direct shell execution. Since tool execution isn't available..." despite no evidence of file creation or execution. It also began an "Actual observed values" claim based on 100,000 iterations/thread without execution evidence. **Model-generated artefact and benchmark claims must be treated as unverified**.
+- The corrected delegation mechanism in v0.1.4 is PASS_LIMITED. Semantic reliability/independent evidence validation still **FAIL/BLOCKED**; the structural post-run tool-state audit does not validate mathematical correctness or truth of self-reported testing.
+- Candidate ZIP and user's installed launcher unchanged; no silent approval.
