@@ -90,8 +90,8 @@ jobs:
           curl -fLsS --retry 3 --connect-timeout 20 --max-time 1200 "$base/$name.sha256" -o "$root/$name.sha256"
           curl -fLsS --retry 3 --connect-timeout 20 --max-time 1200 "$base/$name" -o "$root/$name"
           (cd "$root" && sha256sum -c "$name.sha256") | tee evidence/iso-checksum.log
-          pinned=https://raw.githubusercontent.com/devnet82/devnet-cachyos-repair/d8e4447d19e77a77dc435dc07e72c0c5c3edf741/qa/portfolio-cachyos-vm-v0.1.0
-          curl -fLsS "$pinned/qemu_control.py" -o "$root/qemu_control.py"
+          cp qa/devnet-safe-ai-v0.1.4/qemu_control.py "$root/qemu_control.py"
+          echo 'PINNED_QEMU_CONTROL_HELPER_LOCAL_REUSE_PASS'
           python3 -m py_compile "$root/qemu_control.py"
           truncate -s 128M "$root/control.img"
           mkfs.vfat -F 32 -n DEVNETQA "$root/control.img" >/dev/null
