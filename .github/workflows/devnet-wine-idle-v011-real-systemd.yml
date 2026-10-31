@@ -83,6 +83,25 @@ jobs:
           apid=$!
           trap 'kill "$apid" "$spid" 2>/dev/null || true' EXIT
           sleep 3
+          cat > /tmp/devnet-systemd-inspection-diagnostic.py <<'DIAG'
+          import os,runpy,pathlib,traceback
+          home=pathlib.Path.home()
+          print("SYSTEMD_DIAG_UID",os.getuid(),"HOME",os.getenv("HOME"),"PATH_HOME",home,flush=True)
+          mod=runpy.run_path("/home/devnetwineqa/.local/bin/devnet-wine-idle-cleaner",run_name="inspection")
+          prefix,server=mod["config"](home)
+          print("SYSTEMD_DIAG_PREFIX",prefix,"IS_DIR",prefix.is_dir(),flush=True)
+          try:
+              matches=mod["prefix_processes"](prefix)
+              print("SYSTEMD_DIAG_MATCHES",matches,flush=True)
+          except Exception as exc:
+              print("SYSTEMD_DIAG_FAILURE",repr(exc),"CAUSE",repr(exc.__cause__),flush=True)
+          DIAG
+          asuser mkdir -p "$home/.config/systemd/user/devnet-wine-idle-cleaner.service.d"
+          asuser tee "$home/.config/systemd/user/devnet-wine-idle-cleaner.service.d/10-qa-diagnostic.conf" >/dev/null <<'DROPIN'
+          [Service]
+          ExecStartPre=/usr/bin/python3 /tmp/devnet-systemd-inspection-diagnostic.py
+          DROPIN
+          asuser systemctl --user daemon-reload
           echo 'DIRECT_PRE_SERVICE_DIAGNOSTIC:'
           asuser python3 "$home/.local/bin/devnet-wine-idle-cleaner" status || true
           if ! asuser systemctl --user start devnet-wine-idle-cleaner.service; then
