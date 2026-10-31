@@ -65,12 +65,18 @@ jobs:
           asuser tee "$wine" >/dev/null <<'WINE'
           #!/bin/sh
           [ "$1" = "-k" ] || exit 90
-          printf '%s\n' "$WINEPREFIX" >> "$HOME/.local/state/devnet-wine-idle-cleaner/stop-marker"
+          printf '%s\n' "$WINEPREFIX" >> "/home/devnetwineqa/.local/state/devnet-wine-idle-cleaner/stop-marker"
           WINE
           sudo chmod 0755 "$wine"
           asuser bash "$pkg/install.sh" | tee "$ev/install.log"
           asuser systemctl --user is-enabled --quiet devnet-wine-idle-cleaner.timer
           asuser systemctl --user is-active --quiet devnet-wine-idle-cleaner.timer
+          # Verify mock shutdown evidence path BEFORE relying on it for scheduled QA.
+          marker="$home/.local/state/devnet-wine-idle-cleaner/stop-marker"
+          asuser env WINEPREFIX="$prefix" "$wine" -k
+          grep -Fx "$prefix" "$marker"
+          rm -f "$marker"
+          echo 'STUB_WINESERVER_MARKER_PRETEST_PASS' | tee "$ev/stub.log"
           cat > /tmp/devnet-wine-fixture.py <<'PY'
           import ctypes,sys,time
           assert ctypes.CDLL(None).prctl(15,ctypes.c_char_p(sys.argv[1].encode()),0,0,0)==0
