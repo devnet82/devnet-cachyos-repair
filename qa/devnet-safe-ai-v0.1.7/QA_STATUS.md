@@ -18,3 +18,6 @@ Original immutable v0.1.6 archive SHA256: `5dda7c3355d754efe07f2d44a89ff65d9843d
 - Automatic native Linux gaming detection outside Steam remains a known coverage gap, unchanged in this upgrade revision.
 
 **MASTER_QA=BLOCKED. RELEASE_APPROVED=false.** User's installed v0.1.2 launcher is untouched.
+
+## User download integrity confirmation — 31 October 2026
+User reported running the exact SHA256 and ZIP integrity verifier for `~/Downloads/devnet-safe-ai-v0.1.7-QA-BLOCKED.zip` and observed `DEVNET v0.1.7 ZIP VERIFIED: PASS`. This establishes that the downloaded archive is byte-for-byte identical to pinned SHA256 `46134abe84b13ef4847e24183f6710092448e6c8409dd4b1a5991e6b7b343ff6` and ZIP CRC check found no corruption. This is **download integrity PASS only**, not installation/runtime or release approval. GitHub-first native CachyOS run 41234166536 remains in progress as of this check, independent gate pending; installed production remains v0.1.2. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
