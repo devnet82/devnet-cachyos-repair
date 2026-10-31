@@ -63,3 +63,15 @@ User supplied actual `agent.py` lines 1–70. `process_is_game(comm,cmdline)` re
 - Code review is **NOT** an actual Steam/Proton/VR game launch test or 30B model-unload proof. Do not mark automatic game recognition as PASS until real integration evidence.
 - For process-matcher acceptance, print only synthetic test names and Boolean results; do not log real /proc command lines (privacy).
 **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## User-host synthetic automatic gaming matcher acceptance — 31 October 2026
+
+User executed exact installed agent v0.4.4 `process_is_game` against five representative synthetic process names/cmdlines, plus `gaming_now()` on the real host:
+- Idle Steam: NOT DETECTED (**expected negative PASS**, avoids pausing for launcher)
+- Steam game under `/steamapps/common/`: DETECTED (**PASS**)
+- Proton executable `.exe`: DETECTED (**PASS**)
+- SteamVR `vrcompositor`: DETECTED (**PASS**)
+- Native Linux non-Steam `supertuxkart` binary with `/usr/bin/supertuxkart`: NOT DETECTED (**coverage FAIL**)
+- `CURRENT GAMING DETECTOR: False` while not playing (plausible, not independently verified game state).
+
+**Scope**: tests exercise matcher function with representative synthetic inputs; not actual games being launched. Confirmed native Linux outside-Steam miss. Do not relax false-positive protections by treating arbitrary non-Steam GUI, GPU or full-screen processes as games; preserve idle Steam false. Candidate v0.1.6 imports this installed agent guard, so fixing native coverage requires a **separately reviewed & fully tested candidate change** to trusted host detector or narrow Safe AI extension. No existing files modified by this diagnostic. MASTER_QA BLOCKED; no approval.
