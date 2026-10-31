@@ -90,6 +90,23 @@ jobs:
           mod=runpy.run_path("/home/devnetwineqa/.local/bin/devnet-wine-idle-cleaner",run_name="inspection")
           prefix,server=mod["config"](home)
           print("SYSTEMD_DIAG_PREFIX",prefix,"IS_DIR",prefix.is_dir(),flush=True)
+          print("SYSTEMD_DIAG_FSUID",open("/proc/self/status").read().split("Uid:")[1].splitlines()[0].strip(),flush=True)
+          for task in pathlib.Path("/proc").iterdir():
+              if not task.name.isdecimal(): continue
+              try:
+                  if task.stat().st_uid!=os.getuid(): continue
+                  comm=(task/"comm").read_text().strip().lower()
+                  if comm not in ("wineserver","fusion360.exe"): continue
+                  info=(task/"status").read_text()
+                  ids=[line.strip() for line in info.splitlines() if line.startswith(("Uid:","Gid:","CapEff:","CapPrm:","NoNewPrivs:","TracerPid:"))]
+                  try:
+                      env=(task/"environ").read_bytes()
+                      outcome="READ_OK"
+                  except OSError as exc:
+                      outcome=f"READ_DENIED_ERRNO_{exc.errno}"
+                  print("SYSTEMD_DIAG_PID",task.name,"COMM",comm,"OWNER",task.stat().st_uid,"DETAILS",ids,"ENV",outcome,flush=True)
+              except OSError as exc:
+                  print("SYSTEMD_DIAG_TASK_RACE",task.name,type(exc).__name__,flush=True)
           try:
               matches=mod["prefix_processes"](prefix)
               print("SYSTEMD_DIAG_MATCHES",matches,flush=True)
@@ -103,6 +120,7 @@ jobs:
           DROPIN
           asuser systemctl --user daemon-reload
           echo 'DIRECT_PRE_SERVICE_DIAGNOSTIC:'
+          asuser python3 /tmp/devnet-systemd-inspection-diagnostic.py
           asuser python3 "$home/.local/bin/devnet-wine-idle-cleaner" status || true
           if ! asuser systemctl --user start devnet-wine-idle-cleaner.service; then
             asuser systemctl --user status devnet-wine-idle-cleaner.service --no-pager || true
