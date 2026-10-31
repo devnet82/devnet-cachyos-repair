@@ -35,3 +35,10 @@ Local/offline extracted-archive unit regressions: **35/35 PASS**. Real OpenCode 
 - Other scheduled native CachyOS jobs at 17:30 UTC are duplicate/reverification jobs, not new scope; assess results independently before citing.
 - **Next minimum acceptance test**: run *uninstalled* pinned candidate v0.1.3 `doctor` on the user's CachyOS computer with verified hash; do not alter currently installed v0.1.2 launcher. Only if successful, test genuine 9B file writing *inside this launcher*, 30B specialist delegation/model unloading, pause on gaming, strict workspace denies, rollback and all mandatory host Master QA checks.
 - **MASTER_QA=BLOCKED; RELEASE_APPROVED=false**; current installed safe AI remains unchanged.
+
+## User-reported live CachyOS host acceptance — 31 October 2026
+- User downloaded candidate `~/Downloads/devnet-safe-ai-v0.1.3-QA-BLOCKED.zip`; user-provided `sha256sum` is `8a55f4dbc9e939b04b798b7176ed8ab10b0439a88fc7609f134b528d1d3daf7b` (exact archived candidate), and unzip listing contains all five expected items.
+- Exact candidate, extracted and **not installed**, `python3 devnet-safe-ai-v0.1.3.py doctor`: `PASS: OpenCode sandbox, offline network, private workspace, models and subagent config`; `DOCTOR EXIT: 0`.
+- User then invoked **actual candidate `run`** with prompt to create `DEVNET_V013_LIVE_QA.txt`. Console displayed `> build · qwen3.5:9b`, `← Write DEVNET_V013_LIVE_QA.txt`, `Created file successfully`, `AI EXIT: 0`; independent filesystem read in same user's shell returned `DEVNET_V013_SANDBOX_WRITE_PASS` from `/mnt/devnet-ai/projects/devnet-ai-safe-workspace/DEVNET_V013_LIVE_QA.txt`.
+- **Scope:** real host launcher doctor and a genuine 9B sandboxed Write tool acceptance, user-provided terminal output; not independently captured host recording/attestation. Host configuration was not installed/replaced. No 30B delegation, unload, active-game guard, rollback, complete security test or complete Master QA.
+- **NEXT:** verify real 9B→30B subagent handoff, unload/pause policy, then remaining mandatory host QA. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false**.
