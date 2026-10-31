@@ -2,7 +2,7 @@ name: Devnet Safe AI v015 exact candidate native CachyOS bwrap security - NO REL
 
 on:
   push:
-    branches: [qa/devnet-safe-ai-v0.1.5-delegation-fix]
+    branches: [qa/devnet-safe-ai-v0.1.5-lifecycle-guard]
     paths:
       - 'qa/devnet-safe-ai-v0.1.5/rebuild.py'
       - 'qa/devnet-safe-ai-v0.1.5/patches-v015.zlib.b64'
