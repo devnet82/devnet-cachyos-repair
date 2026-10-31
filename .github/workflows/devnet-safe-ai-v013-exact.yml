@@ -1,0 +1,89 @@
+name: Devnet Safe AI v0.1.3 - exact archive regression gate
+on:
+  push:
+    branches:
+      - qa/devnet-safe-ai-v0.1.3-reasoning-fix
+    paths:
+      - qa/devnet-safe-ai-v0.1.3/candidate.zip
+      - .github/workflows/devnet-safe-ai-v013-exact.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exact-archive-unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify archive integrity and privacy preflight
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/devnet-safe-v013
+          sha256sum qa/devnet-safe-ai-v0.1.3/candidate.zip | tee /tmp/archive-sha.txt
+          echo "8a55f4dbc9e939b04b798b7176ed8ab10b0439a88fc7609f134b528d1d3daf7b  qa/devnet-safe-ai-v0.1.3/candidate.zip" | sha256sum -c -
+          python3 - <<'PY'
+          import hashlib,pathlib,re,stat,zipfile
+          p=pathlib.Path('qa/devnet-safe-ai-v0.1.3/candidate.zip')
+          expected={'devnet-safe-ai-v0.1.3.py','test_devnet_safe_ai_v0.1.3.py','v0.1.2-baseline-permissions.json','DEVNET-SAFE-AI-v0.1.3-README.md','SHA256SUMS'}
+          with zipfile.ZipFile(p) as z:
+              assert z.testzip() is None
+              assert len(z.infolist())==5
+              assert {i.filename for i in z.infolist()}==expected
+              assert all(not i.is_dir() and stat.S_IFMT(i.external_attr >> 16) in (0,stat.S_IFREG) for i in z.infolist())
+              checksums=z.read('SHA256SUMS').decode().splitlines()
+              assert len(checksums)==4
+              for line in checksums:
+                  digest,name=line.split(maxsplit=1)
+                  assert name in expected-{'SHA256SUMS'}
+                  assert hashlib.sha256(z.read(name)).hexdigest()==digest
+              all_text='\n'.join(z.read(n).decode() for n in expected if n!='SHA256SUMS')
+              assert not re.search(r'/home/(?!agent\b)[A-Za-z0-9_.-]+',all_text)
+              assert not re.search(r'-----BEGIN [^-]*PRIVATE KEY|github_pat_[A-Za-z0-9_]{15,}|gh[psu]_[A-Za-z0-9]{15,}',all_text)
+              z.extractall('/tmp/devnet-safe-v013')
+              for name in ('devnet-safe-ai-v0.1.3.py','test_devnet_safe_ai_v0.1.3.py'):
+                  compile(z.read(name),name,'exec')
+          print('ARCHIVE_SHA256_AND_FILE_INTEGRITY_PASS')
+          PY
+      - name: Execute entire fresh 35-test suite on exact extracted archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd /tmp/devnet-safe-v013
+          python3 test_devnet_safe_ai_v0.1.3.py > /tmp/qa-tests.log 2>&1
+          cat /tmp/qa-tests.log
+          grep -q 'Ran 35 tests' /tmp/qa-tests.log
+          grep -qx 'OK' /tmp/qa-tests.log
+          echo 'GITHUB_EXACT_ZIP_REGRESSIONS_PASS_LIMITED'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: devnet-safe-v013-unit-evidence
+          path: |
+            /tmp/archive-sha.txt
+            /tmp/qa-tests.log
+          if-no-files-found: warn
+  independent-scope-gate:
+    needs: exact-archive-unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: devnet-safe-v013-unit-evidence
+          path: evidence
+      - name: Deterministic evidence and release block
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sha256sum -c <(echo '8a55f4dbc9e939b04b798b7176ed8ab10b0439a88fc7609f134b528d1d3daf7b  qa/devnet-safe-ai-v0.1.3/candidate.zip')
+          grep -q 'Ran 35 tests' evidence/qa-tests.log
+          grep -qx 'OK' evidence/qa-tests.log
+          grep -q '^8a55f4dbc9e939b04b798b7176ed8ab10b0439a88fc7609f134b528d1d3daf7b ' evidence/archive-sha.txt
+          printf '%s\n' 'LIVE_FILE_WRITE=NOT_TESTED' 'NATIVE_CACHYOS=NOT_TESTED' 'HOST_SANDBOX_SECURITY=NOT_TESTED' 'MODEL_9B_30B_SWITCHING=NOT_TESTED' 'MASTER_QA=BLOCKED' 'RELEASE_APPROVED=false'
+          echo 'INDEPENDENT_UNIT_SCOPE_PASS_LIMITED__NO_RELEASE'
