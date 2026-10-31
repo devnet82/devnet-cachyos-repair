@@ -106,3 +106,13 @@ User ran SHA-verified exact v0.1.6 candidate on CachyOS in a subprocess with `ru
 - `30B LOAD OBSERVED: True`.
 - `MODELS AFTER IDLE:` empty `ollama ps` table (no resident models), after 40 seconds.
 **PASS, genuine user-host runtime:** both models individually observed loaded, required 30B delegated and returned, and both absent after 40-second idle. Polling every second does not establish *absence of transient simultaneous residency*, exact RAM/VRAM peak, or which model ran on CPU/GPU. Do not claim strict zero overlap or zero total GPU use. Remaining open scope: actual game launch while inference active, real VR activity, non-Steam native-game detection gap, installation/upgrade/rollback and complete independent Master QA. Candidate and installed launcher unchanged; RELEASE_APPROVED=false, MASTER_QA=BLOCKED.
+
+## Production-installed launcher baseline and upgrade policy — 31 October 2026
+
+User's real CachyOS read-only inspection:
+- `~/.local/bin/devnet-safe-ai` exists and is regular (non-symlink, per user's check).
+- Installed `VERSION=0.1.2`; file SHA256 `3cae3df60b657744740c69649469a4eb495f6a9659d4d5557a4cae4a94dcebce`.
+- Exact uninstalled v0.1.6 QA ZIP differs, SHA256 `5dda7c3355d754efe07f2d44a89ff65d9843d32fffc71e0bfdb80923bec69a25`.
+- Source inspection of v0.1.6 `install()`: when `~/.local/bin/devnet-safe-ai` exists with different bytes, it **fails closed**, no overwrite, because it has no built-in upgrade/rollback. Must not run `install` on production as an upgrade. We need a separate safe, reversible migration/rollback QA process validated in a scratch HOME first; preserve original hash and original private state; never overwrite the only recoverable copy.
+- Live GitHub-first 55/55 native CachyOS suite previously passed for identical candidate, but **real installer/upgrade/rollback in a scratch or actual deployment has not been run**, thus remaining QA BLOCKED. Never treat previous GitHub tests as proof of upgrade.
+**RELEASE_APPROVED=false; MASTER_QA=BLOCKED.**
