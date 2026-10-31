@@ -144,14 +144,14 @@ jobs:
               fi
               asuser journalctl --user -u devnet-wine-idle-cleaner.service -n 12 --no-pager || true
             done
-            printf '[Service]\nNoNewPrivileges=no\nProtectHome=no\nProtectSystem=no\n' | asuser tee "$home/.config/systemd/user/devnet-wine-idle-cleaner.service.d/20-ci-only-test.conf" >/dev/null
+            printf '[Service]\nNoNewPrivileges=yes\nProtectHome=no\nProtectSystem=no\nReadWritePaths=\nPrivateUsers=no\nUMask=0077\n' | asuser tee "$home/.config/systemd/user/devnet-wine-idle-cleaner.service.d/20-ci-only-test.conf" >/dev/null
             asuser systemctl --user daemon-reload
             asuser systemctl --user reset-failed devnet-wine-idle-cleaner.service || true
-            echo 'CI_AB_TEST: ALL_THREE_DISABLED'
+            echo 'CI_AB_TEST: NO_MOUNT_NAMESPACE_USER_SANDBOX_ONLY'
             if asuser systemctl --user start devnet-wine-idle-cleaner.service; then
-              echo 'CI_AB_RESULT: ALL_THREE_DISABLED SERVICE_EXECUTED'
+              echo 'CI_AB_RESULT: NO_MOUNT_NAMESPACE_USER_SANDBOX_ONLY SERVICE_EXECUTED'
             else
-              echo 'CI_AB_RESULT: ALL_THREE_DISABLED SERVICE_FAILED'
+              echo 'CI_AB_RESULT: NO_MOUNT_NAMESPACE_USER_SANDBOX_ONLY SERVICE_FAILED'
             fi
             echo "REAL_USER_SERVICE_START_FAILED" >&2
             exit 1
