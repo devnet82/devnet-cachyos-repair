@@ -91,6 +91,8 @@ jobs:
           ollama list | tee evidence/models.log
           grep -q 'qwen3.5:9b' evidence/models.log
           ws=/mnt/devnet-ai/projects/devnet-ai-safe-workspace
+          sudo mkdir -p "$ws"
+          sudo chown -R "$(id -u):$(id -g)" /mnt/devnet-ai
           test ! -e "$ws/REAL_LIVE_QA.txt"
           prompt='Use the real file editing tool to create REAL_LIVE_QA.txt in the current workspace. Put only the exact line DEVNET_REAL_OPENCODE_9B_WRITE_PASS inside it. Do not just describe a file. Then confirm.'
           (cd "$ws" && timeout --signal=TERM --kill-after=8s 480s env HOME=/tmp/devnet-v013-direct-opencode-home XDG_CONFIG_HOME=/tmp/devnet-v013-direct-opencode-home/.config OPENCODE_CONFIG=/tmp/devnet-v013-direct-opencode-home/opencode.json opencode run --standalone --agent build --model ollama/qwen3.5:9b "$prompt") > evidence/real-file-write.log 2>&1 || {
