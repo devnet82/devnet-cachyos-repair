@@ -17,3 +17,10 @@ Exact v0.1.5 archive SHA256: `fc572e7a1e1659f409a9d3a98f4f1926535515204cd43031b9
 - Previously user-proven v0.1.4 live delegation is only historical reference, **not inherited PASS** for v0.1.5.
 
 **GITHUB_FIRST=PASS_LIMITED_OR_PENDING; MASTER_QA=BLOCKED; RELEASE_APPROVED=false.** Do not install into production.
+
+## Final GitHub-first exact v0.1.5 QA verification — 31 October 2026
+
+- [run 41230120191](https://github.com/devnet82/devnet-cachyos-repair/actions/runs/41230120191) **ALL THREE JOBS SUCCESS**: exact SHA256 verified reproducible archive rebuild from pinned v0.1.4; real booted CachyOS QEMU/KVM guest executed fresh **46/46 regression tests PASS**, including OS child termination prior to unload, KeyboardInterrupt unload, and frozen earlier security tests; unprivileged Bubblewrap workspace isolation PASS; independent signed evidence/scope gate PASS. Archive SHA256 remained `fc572e7a1e1659f409a9d3a98f4f1926535515204cd43031b9bee15198109512`.
+- Earlier [run 41229794341](https://github.com/devnet82/devnet-cachyos-repair/actions/runs/41229794341) ended FAIL **after guest had produced a 46-test native result**, because workflow assertions still expected 43 (old suite count). CI harness-only correction updated both native and independent assertions; AI candidate bytes unchanged.
+- **Scope:** GitHub FIRST unit/OS-child/Bwrap checks PASS_LIMITED. No real OpenCode 9B, Ollama 30B or gaming/VR with this exact candidate in native VM, nor live user-host doctor/write/delegation, real VR-game preemption, Ollama unload, installed migration/rollback or full Master QA. All still require evidence.
+- **MASTER_QA=BLOCKED; RELEASE_APPROVED=false; GITHUB_FIRST=PASS_LIMITED.**
