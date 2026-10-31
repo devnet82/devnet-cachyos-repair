@@ -87,3 +87,11 @@ User kept a real game (No Man's Sky, `NMS.exe`) running and executed a read-only
 - `MATCHED GAME PROCESSES:` `NMS.exe`, `lsass.exe`, `plugplay.exe`, `pv-adverb`, `python3`, `reaper`, `rpcss.exe`, `srt-bwrap`, `steam.exe`, `svchost.exe`, `tabtip.exe`, `winedevice.exe`, `wineserver`, `xalia.exe`.
 - `AUTOMATIC DETECTION: True`; `CURRENT GAMING DETECTOR: True`.
 This **confirms a genuine game process is matched automatically with manual override absent**, including the actual game's executable `NMS.exe`. Auxiliary `python3`, `reaper`, `srt-bwrap`, `steam.exe` and Proton service processes are also matched in this real gaming session, likely via Steam executable path/arguments; **false-positive game-stopped/idle detection remains UNVERIFIED**. The test establishes detector activation during real gaming, but not yet whether game launch automatically interrupts a concurrently-running AI (the latter was earlier tested only by manual sentinel). Native non-Steam game coverage still FAIL/NOT IMPLEMENTED. No candidate/installation changes. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## Real Steam/Proton game-exit detector recovery — 31 October 2026
+
+After fully closing No Man's Sky on the user's live CachyOS system, user ran the unchanged agent v0.4.4 read-only detector plus independent process matcher sweep:
+- `DETECTOR AFTER GAME EXIT: False`
+- `REMAINING MATCHES: []`
+- Previously, while No Man's Sky was running, `gaming_now=True`, `NMS.exe` and Proton processes positively matched with manual override flags absent. Together these observations confirm **automatic gaming detector activity during the game and cessation after exit** for this particular real game: **PASS**.
+- This does **not** demonstrate the exact launcher reacting to an *actual* game launch mid-run, 30B resident-model unload after delegation, gaming coverage for native non-Steam games, or installation/upgrade/rollback. Keep the same candidate unmodified and **MASTER_QA=BLOCKED; RELEASE_APPROVED=false**.
