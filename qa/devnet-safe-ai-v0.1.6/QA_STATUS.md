@@ -37,3 +37,15 @@ User ran the exact pinned v0.1.6 archive on real CachyOS (preflight `ZIP VERIFIE
 ## Live user-host v0.1.6 gaming-start guard — 31 October 2026
 
 User executed the exact SHA-verified candidate with trusted local `~/.config/devnet-qa-automation/gaming-on` sentinel created only for the test and registered for removal at normal Python exit. Result: `EXIT: 2`, `MESSAGE: BLOCKED: Gaming/stop-all is active`, `GAMING START BLOCK: PASS`. This is **genuine host gaming-start guard PASS** (simulated sentinel; not a real launched game). Mid-task process-group termination / real Ollama unloading after interruption, actual gaming detector and VR remain **NOT TESTED**. **MASTER_QA=BLOCKED, RELEASE_APPROVED=false**.
+
+## Live user-host v0.1.6 mid-task gaming sentinel interrupt — 31 October 2026
+
+Exact previously SHA-verified v0.1.6 candidate ran on real CachyOS with 9B OpenCode active for an extended analysis request. User created the existing `~/.config/devnet-qa-automation/gaming-on` sentinel during the running process. Observed:
+- `> build · qwen3.5:9b`
+- `AI ACTIVE: triggering gaming mode`
+- `BLOCKED: Gaming detected; sandbox stopped and models unloaded`
+- `MID-TASK EXIT: 2`
+- `MID-TASK GAMING STOP: PASS`
+- `ollama ps` immediately afterwards: empty model list.
+
+**PASS within tested scope:** genuine running launcher reacted to mid-task manual sentinel activation, exited 2, and Ollama reported no resident models afterward. This demonstrates interruption and unload on the user's actual host; the exact physical game/VR detection integration was NOT exercised. Other pending tests include actual automatic game-flag triggering, live 30B interruption/unload, install/upgrade/uninstall/rollback, broader Master QA/evidence and user final acceptance. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
