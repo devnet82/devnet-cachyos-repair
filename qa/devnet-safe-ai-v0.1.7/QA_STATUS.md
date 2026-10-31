@@ -62,3 +62,18 @@ V0.1.7 HOST DOCTOR: PASS
 ```
 Check returned exit 0; the installed production v0.1.2 was not upgraded or modified. **Host doctor PASS only**, not actual live 9B/30B delegation, real gaming interruption, full security or host Master QA approval. Next: exact v0.1.7 fresh live required 30B delegation and model loading/unloading; do not inherit v0.1.6 PASS.
 **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## Exact v0.1.7 real host 9B→30B→9B delegation + idle unload — PASS, with report-grounding issue — 31 October 2026
+
+User ran hash-verified v0.1.7 candidate (SHA256 `46134abe84b13ef4847e24183f6710092448e6c8409dd4b1a5991e6b7b343ff6`) extracted temporarily, uninstalled, through live OpenCode. Required `devnet-heavy` called with instructions: "review a C++ counter race condition, explain the safe mutex fix, and report its findings. Do not edit files." Output:
+- `✓ Review C++ counter race condition Devnet-Heavy Agent`; substantive coordinator summary returned.
+- `DEVNET RESULT AUDIT: PASS (new tool failures: 0; completed delegations: 1 ; required: True )`
+- `RUN EXIT: 0`
+- 1-second polling of real `ollama ps`: `MODELS OBSERVED: ['qwen3-coder:30b', 'qwen3.5:9b']`, `30B LOAD OBSERVED: True`.
+- After an additional 40s idle, `MODELS AFTER IDLE:` header only, no models; `V0.1.7 LIVE MODEL QA: PASS`.
+**Actual model delegation and idle resource recovery: PASS on exact v0.1.7.** This does not establish absence of transient overlap or all GPU memory usage.
+
+**Important content-grounding concern (not to count as PASS):** Despite a conceptual prompt with **no provided input C/C++ files**, the assistant's generated report claims `Files Analyzed: counter_problematic.c, counter_fixed.c`, mentions line numbers and a specific expected 200,000 increments. Those are **unsubstantiated claims** (unless actual files and reads are independently proved). No file-read trace is contained in supplied output. The deterministic audit confirms *real subagent invocation*, not factual grounding or real file review. Record this as **UNVERIFIED/possible hallucination**, investigate separately; no claim that a real source review passed. The user demands no simulated evidence or false PASS.
+- Remaining release gates include fresh v0.1.7 real file writing, mid-task actual gaming interruption vs manual sentinel, fully-integrated upgrade/rollback, resolution or explicit fail-closed handling of native non-Steam gaming detection.
+- Production installed v0.1.2 unchanged.
+**MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
