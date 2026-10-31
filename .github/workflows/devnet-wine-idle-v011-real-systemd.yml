@@ -144,7 +144,7 @@ jobs:
               fi
               asuser journalctl --user -u devnet-wine-idle-cleaner.service -n 12 --no-pager || true
             done
-            printf '[Service]\\nNoNewPrivileges=no\\nProtectHome=no\\nProtectSystem=no\\n' | asuser tee "$home/.config/systemd/user/devnet-wine-idle-cleaner.service.d/20-ci-only-test.conf" >/dev/null
+            printf '[Service]\nNoNewPrivileges=no\nProtectHome=no\nProtectSystem=no\n' | asuser tee "$home/.config/systemd/user/devnet-wine-idle-cleaner.service.d/20-ci-only-test.conf" >/dev/null
             asuser systemctl --user daemon-reload
             asuser systemctl --user reset-failed devnet-wine-idle-cleaner.service || true
             echo 'CI_AB_TEST: ALL_THREE_DISABLED'
