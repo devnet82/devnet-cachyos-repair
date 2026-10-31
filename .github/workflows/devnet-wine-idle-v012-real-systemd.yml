@@ -74,8 +74,8 @@ jobs:
           # Verify mock shutdown evidence path BEFORE relying on it for scheduled QA.
           marker="$home/.local/state/devnet-wine-idle-cleaner/stop-marker"
           asuser env WINEPREFIX="$prefix" "$wine" -k
-          grep -Fx "$prefix" "$marker"
-          rm -f "$marker"
+          asuser grep -Fx "$prefix" "$marker"
+          asuser rm -f "$marker"
           echo 'STUB_WINESERVER_MARKER_PRETEST_PASS' | tee "$ev/stub.log"
           cat > /tmp/devnet-wine-fixture.py <<'PY'
           import ctypes,sys,time
@@ -98,7 +98,7 @@ jobs:
           fi
           asuser "$home/.local/bin/devnet-wine-idle-cleaner" status | tee "$ev/active.log"
           grep -qx 'WINE CLEANER: APP_RUNNING' "$ev/active.log"
-          test ! -e "$home/.local/state/devnet-wine-idle-cleaner/stop-marker"
+          if asuser test -e "$home/.local/state/devnet-wine-idle-cleaner/stop-marker"; then echo "PREMATURE_STOP_MARKER" >&2; exit 1; fi
           echo 'REAL_SERVICE_PROTECTS_ACTIVE_APP_PASS' | tee "$ev/protected.log"
           sudo pkill -u "$user" -x fusion360.exe
           sleep 2
@@ -109,13 +109,13 @@ jobs:
           fi
           asuser "$home/.local/bin/devnet-wine-idle-cleaner" status | tee "$ev/waiting.log"
           grep -qx 'WINE CLEANER: WAITING' "$ev/waiting.log"
-          test ! -e "$home/.local/state/devnet-wine-idle-cleaner/stop-marker"
+          if asuser test -e "$home/.local/state/devnet-wine-idle-cleaner/stop-marker"; then echo "PREMATURE_STOP_MARKER" >&2; exit 1; fi
           echo 'REAL_SERVICE_STARTS_GRACE_DELAY_PASS' | tee "$ev/grace.log"
           # No further manual service activation: only actual systemd timer may invoke it.
           marker="$home/.local/state/devnet-wine-idle-cleaner/stop-marker"
           triggered=0
           for i in $(seq 1 84); do
-            if test -f "$marker"; then triggered=1; break; fi
+            if asuser test -f "$marker"; then triggered=1; break; fi
             sleep 5
           done
           if test "$triggered" -ne 1; then
@@ -124,8 +124,8 @@ jobs:
             echo 'AUTO_TIMER_NOT_VERIFIED' >&2
             exit 1
           fi
-          grep -Fx "$prefix" "$marker"
-          if grep -Fx "$other" "$marker"; then echo 'UNRELATED_PREFIX_TOUCHED' >&2; exit 1; fi
+          asuser grep -Fx "$prefix" "$marker"
+          if asuser grep -Fx "$other" "$marker"; then echo 'UNRELATED_PREFIX_TOUCHED' >&2; exit 1; fi
           kill -0 "$opid"
           echo 'REAL_TIMER_180_SECOND_GRACE_EXACT_PREFIX_REQUEST_AND_OTHER_PREFIX_ISOLATION_PASS' | tee "$ev/automatic.log"
           asuser bash "$pkg/uninstall.sh" | tee "$ev/uninstall.log"
