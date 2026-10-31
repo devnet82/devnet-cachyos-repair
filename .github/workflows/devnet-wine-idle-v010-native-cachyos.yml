@@ -111,7 +111,8 @@ jobs:
           python3 test_monitor.py > /mnt/unit-tests.log 2>&1
           python3 test_install.py >> /mnt/unit-tests.log 2>&1
           cat /mnt/unit-tests.log
-          grep -q 'Ran 20 tests' /mnt/unit-tests.log
+          grep -q 'Ran 16 tests' /mnt/unit-tests.log
+          grep -q 'Ran 4 tests' /mnt/unit-tests.log
           grep -qx 'OK' /mnt/unit-tests.log
           python3 - <<'PY'
           import json,pathlib
@@ -162,7 +163,7 @@ jobs:
           assert r['candidate_sha256']=='0a0ee582186a18ffa3ee374f2e8565d3430cf268f2b0e3b52ae411c715494b47'
           assert r['native_cachyos'] is True and r['unit_tests_pass']==20
           assert r['master_qa']=='BLOCKED' and r['release_approved'] is False
-          assert 'Ran 20 tests' in open('evidence/unit-tests.log').read()
+          assert 'Ran 16 tests' in open('evidence/unit-tests.log').read() and 'Ran 4 tests' in open('evidence/unit-tests.log').read()
           print('GITHUB_CACHYOS_20_OF_20_TESTS_PASS_LIMITED_FULL_MASTER_QA_BLOCKED')
           PY
       - uses: actions/upload-artifact@v4
@@ -206,7 +207,7 @@ jobs:
           assert r['install_upgrade_rollback']=='NOT_TESTED'
           assert r['master_qa']=='BLOCKED' and r['release_approved'] is False
           log=pathlib.Path('evidence/unit-tests.log').read_text()
-          assert 'Ran 20 tests' in log and '\nOK\n' in log
+          assert 'Ran 16 tests' in log and 'Ran 4 tests' in log and '\nOK\n' in log
           assert 'REAL_CACHYOS_EXACT_ZIP_PASS' in pathlib.Path('evidence/controller.log').read_text()
           pathlib.Path('scope-receipt.json').write_text(json.dumps({
             'schema':'devnet-wine-v010-github-scope-v1','archive_sha256':h,
