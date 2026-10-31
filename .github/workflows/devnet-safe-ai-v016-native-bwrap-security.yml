@@ -2,7 +2,7 @@ name: Devnet Safe AI v016 exact candidate native CachyOS bwrap security - NO REL
 
 on:
   push:
-    branches: [qa/devnet-safe-ai-v0.1.6-lifecycle-guard]
+    branches: [qa/devnet-safe-ai-v0.1.6-required-delegation]
     paths:
       - 'qa/devnet-safe-ai-v0.1.6/rebuild.py'
       - 'qa/devnet-safe-ai-v0.1.6/patches-v016.zlib.b64'
