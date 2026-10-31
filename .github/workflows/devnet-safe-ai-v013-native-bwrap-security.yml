@@ -143,7 +143,7 @@ jobs:
           import json,pathlib
           result={'schema':'devnet-safe-ai-v013-github-cachyos-unit-scope-v1',
                   'candidate_sha256':'8a55f4dbc9e939b04b798b7176ed8ab10b0439a88fc7609f134b528d1d3daf7b',
-                  'native_cachyos':True,'unit_tests_pass':35,'unit_tests_fail':0,
+                  'native_cachyos':True,'native_bwrap_isolation':'PASS','unit_tests_pass':35,'unit_tests_fail':0,
                   'ollama_host_live':'NOT_TESTED','opencode_full_runtime':'NOT_TESTED',
                   'vm_host_master_qa':'NOT_TESTED','install_upgrade_rollback':'NOT_TESTED',
                   'master_qa':'BLOCKED','release_approved':False}
