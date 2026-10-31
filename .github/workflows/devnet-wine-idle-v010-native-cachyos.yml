@@ -2,7 +2,7 @@ name: Devnet Wine Idle Cleaner v0.1.0 native CachyOS - unit-scope only
 
 on:
   push:
-    branches: [qa/devnet-wine-idle-cleaner-v0.1.0-reasoning-fix]
+    branches: [qa/devnet-wine-idle-cleaner-v0.1.0]
     paths:
       - 'qa/devnet-wine-idle-cleaner-v0.1.0/**'
       - '.github/workflows/devnet-wine-idle-v010-native-cachyos.yml'
@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - name: Decode exact original candidate; integrity, scope and privacy preflight
+      - name: Verify exact candidate; integrity, scope and privacy preflight
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -95,7 +95,7 @@ jobs:
           #!/usr/bin/env bash
           set -Eeuo pipefail
           exec > /mnt/controller.log 2>&1
-          trap 'rc=$?; echo SAFEAI_GUEST_EXIT=$rc; sync' EXIT
+          trap 'rc=$?; echo WINE_CLEANER_GUEST_EXIT=$rc; sync' EXIT
           grep -Eq '^ID=cachyos$' /etc/os-release
           echo "REAL_CACHYOS_GUEST_KERNEL=$(uname -r)"
           python3 - <<'PY'
@@ -226,4 +226,4 @@ jobs:
           name: devnet-wine-v010-signed-github-scope
           path: scope-receipt.json
           if-no-files-found: error
-      - run: echo '30/20 tests only in genuine GitHub-hosted CachyOS VM. Host install/upgrade/rollback, security runtime, and Master QA are NOT TESTED; release BLOCKED.' >> "$GITHUB_STEP_SUMMARY"
+      - run: echo '20/20 tests only in genuine GitHub-hosted CachyOS VM. Host install/upgrade/rollback, security runtime, and Master QA are NOT TESTED; release BLOCKED.' >> "$GITHUB_STEP_SUMMARY"
