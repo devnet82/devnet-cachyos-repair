@@ -42,3 +42,13 @@ The user's GitHub screenshot shows SUCCESS for all 3 jobs. Independently checked
 3. `independent-evidence-and-scope-gate`: **success**. GitHub attestations [62179385](https://github.com/devnet82/devnet-cachyos-repair/attestations/62179385) and [62179389](https://github.com/devnet82/devnet-cachyos-repair/attestations/62179389) published to Sigstore transparency log; evidence and scope receipt artifacts captured.
 This passes the required **GitHub-first CI gate only**. The independent scope explicitly states actual OpenCode/Ollama inside bwrap, 30B live switching, host installation, VM/host Master QA remain NOT TESTED; release BLOCKED. Next gate is live user's own CachyOS KVM QA VM, then host exact v0.1.7 integrated workflow, including fresh 9B/30B/gaming interruption/recovery, with no inheritance from v0.1.6 test results. Existing production v0.1.2 remains unchanged.
 **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## User's own actual CachyOS QA VM — exact v0.1.7 70/70 regression PASS, 31 October 2026
+
+After successful GitHub-first native CachyOS QEMU 70/70 and signed independent evidence gate, user executed a fish-compatible one-line Python host-to-VM transfer/regression command:
+- Host verified downloaded candidate ZIP SHA256 `46134abe84b13ef4847e24183f6710092448e6c8409dd4b1a5991e6b7b343ff6`.
+- SSH to existing `devnet@192.168.122.71`, `BatchMode=yes`, transferred the exact archived bytes over stdin to isolated ephemeral test directory, re-verified SHA256 and CRC, explicitly required non-root VM SSH user, and ran `test_devnet_safe_ai_v0.1.7.py` locally on the VM without installation.
+- User provided raw output with actual transactional upgrade/rollback tests, tamper/symlink/refusal scenarios `... ok`, followed by `Ran 70 tests in 1.787s`, `OK`, `LOCAL CACHYOS VM 70/70: PASS` and successful command return.
+- A `ResourceWarning` appeared in the test output; it did not cause test failure. Preserve as non-fatal issue, investigate if potentially meaningful.
+- This is **VM regression-scope PASS only** from user-provided execution evidence. GitHub-first test ordering observed. No claim of OpenCode live model, full GUI/tray, live gaming, VM installed upgrade, release acceptance or fresh v0.1.7 Ollama 9B→30B host test. Existing host v0.1.2 installation untouched.
+**MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
