@@ -33,3 +33,7 @@ User ran the exact pinned v0.1.6 archive on real CachyOS (preflight `ZIP VERIFIE
 - Correct explanation: two +1 increments from 5 = 7 when synchronized, lost update yields 6; mutex protective critical section; no benchmark results claimed.
 - **Not established by this run**: actual 30B model load/unload telemetry (no `ollama ps` during or after), real game/VR interruption, full install/upgrade/rollback, recovery, Master QA full evidence. Structural subagent audit does not independently validate program correctness in other tasks.
 - Keep initial GitHub 55/55 tests + evidence gate PASS_LIMITED. **MASTER_QA=BLOCKED; RELEASE_APPROVED=false**.
+
+## Live user-host v0.1.6 gaming-start guard — 31 October 2026
+
+User executed the exact SHA-verified candidate with trusted local `~/.config/devnet-qa-automation/gaming-on` sentinel created only for the test and registered for removal at normal Python exit. Result: `EXIT: 2`, `MESSAGE: BLOCKED: Gaming/stop-all is active`, `GAMING START BLOCK: PASS`. This is **genuine host gaming-start guard PASS** (simulated sentinel; not a real launched game). Mid-task process-group termination / real Ollama unloading after interruption, actual gaming detector and VR remain **NOT TESTED**. **MASTER_QA=BLOCKED, RELEASE_APPROVED=false**.
