@@ -77,3 +77,19 @@ User ran hash-verified v0.1.7 candidate (SHA256 `46134abe84b13ef4847e24183f67100
 - Remaining release gates include fresh v0.1.7 real file writing, mid-task actual gaming interruption vs manual sentinel, fully-integrated upgrade/rollback, resolution or explicit fail-closed handling of native non-Steam gaming detection.
 - Production installed v0.1.2 unchanged.
 **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## Host exact v0.1.7 real 9B sandboxed file-write QA PASS — 31 October 2026
+
+User executed exact v0.1.7 SHA-verified ZIP uninstalled in a temporary directory, requested a one-line text file in the established private workspace using real OpenCode.
+Output from live run:
+```
+> build · qwen3.5:9b
+← Write DEVNET_V017_FILE_QA.txt
+Created file successfully: DEVNET_V017_FILE_QA.txt
+DEVNET RESULT AUDIT: PASS (new tool failures: 0; completed delegations: 0 ; required: False )
+RUN EXIT: 0
+REAL WORKSPACE FILE WRITE: PASS
+```
+Command independently checked regular non-symlink file `/mnt/devnet-ai/projects/devnet-ai-safe-workspace/DEVNET_V017_FILE_QA.txt` exists and contains exactly `DEVNET_V017_REAL_WRITE_PASS` (newline-insensitive). Earlier precondition checked target did not already exist; no overwrite. This is **real sandbox write PASS on exact v0.1.7**. The message "No other files were modified" was **model assertion only**, not independently checked; do not count that as verified. Normal 9B run properly required no 30B delegation, unlike earlier separate required-delegation PASS.
+Remaining: fresh v0.1.7 mid-inference gaming guard stop/unload from actual in-use model and auto-game launch, integrated upgrade/rollback of real installed v0.1.2 with private-state integrity, full release Master QA and native non-Steam game detection gap.
+**MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
