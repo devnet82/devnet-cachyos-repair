@@ -157,7 +157,7 @@ jobs:
                   'vm_host_master_qa':'NOT_TESTED','install_upgrade_rollback':'NOT_TESTED',
                   'master_qa':'BLOCKED','release_approved':False}
           pathlib.Path('/mnt/native-result.json').write_text(json.dumps(result,sort_keys=True)+'\n')
-          print('REAL_GITHUB_NATIVE_CACHYOS_43_REGRESSIONS_PASS_LIMITED')
+          print('REAL_GITHUB_NATIVE_CACHYOS_46_REGRESSIONS_PASS_LIMITED')
           PY
           GUEST
           bash -n "$root/guest-test.sh"
@@ -195,7 +195,7 @@ jobs:
           r=json.load(open('evidence/native-result.json'))
           assert r['schema']=='devnet-safe-ai-v015-github-cachyos-unit-scope-v1'
           assert r['candidate_sha256']=='fc572e7a1e1659f409a9d3a98f4f1926535515204cd43031b9bee15198109512'
-          assert r['native_cachyos'] is True and r['native_bwrap_isolation']=='PASS' and r['unit_tests_pass']==43
+          assert r['native_cachyos'] is True and r['native_bwrap_isolation']=='PASS' and r['unit_tests_pass']==46
           assert r['master_qa']=='BLOCKED' and r['release_approved'] is False
           assert 'Ran 46 tests' in open('evidence/unit-tests.log').read()
           print('GITHUB_CACHYOS_46_OF_46_TESTS_PASS_LIMITED_FULL_MASTER_QA_BLOCKED')
@@ -236,7 +236,7 @@ jobs:
           assert h=='fc572e7a1e1659f409a9d3a98f4f1926535515204cd43031b9bee15198109512'
           r=json.loads(pathlib.Path('evidence/native-result.json').read_text())
           assert r['candidate_sha256']==h and r['native_cachyos'] is True
-          assert r['native_bwrap_isolation']=='PASS' and r['unit_tests_pass']==43 and r['unit_tests_fail']==0
+          assert r['native_bwrap_isolation']=='PASS' and r['unit_tests_pass']==46 and r['unit_tests_fail']==0
           assert r['ollama_host_live']=='NOT_TESTED' and r['opencode_full_runtime']=='NOT_TESTED'
           assert r['install_upgrade_rollback']=='NOT_TESTED'
           assert r['master_qa']=='BLOCKED' and r['release_approved'] is False
