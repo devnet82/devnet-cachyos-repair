@@ -1,0 +1,93 @@
+name: Devnet Wine idle cleaner v0.1.1 - exact archive QA (NO RELEASE)
+on:
+  push:
+    branches:
+      - qa/devnet-wine-idle-cleaner-v0.1.1
+    paths:
+      - qa/devnet-wine-idle-cleaner-v0.1.1/candidate.zip
+      - .github/workflows/devnet-wine-idle-v011-exact.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exact-archive-unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify exact archive and extracted sources before execution
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo 'f11cd9bd6e5ea0f4738ddf472be9ff8c79dcfa5c2fea85a843ca1a2d8bf8889b  qa/devnet-wine-idle-cleaner-v0.1.1/candidate.zip' | sha256sum -c -
+          mkdir -p /tmp/winecleaner
+          python3 - <<'PY'
+          import hashlib,zipfile,stat,re,pathlib
+          p=pathlib.Path('qa/devnet-wine-idle-cleaner-v0.1.1/candidate.zip')
+          expected={'README.md','SHA256SUMS','monitor.py','test_monitor.py','test_install.py','install.sh','uninstall.sh','devnet-wine-idle-cleaner.service','devnet-wine-idle-cleaner.timer'}
+          with zipfile.ZipFile(p) as z:
+              assert z.testzip() is None
+              names=z.namelist()
+              assert len(names)==len(expected)
+              prefix='devnet-wine-idle-cleaner-v0.1.1-QA-BLOCKED/'
+              assert {n.removeprefix(prefix) for n in names}==expected
+              assert all(n.startswith(prefix) and n.count('/')==1 for n in names)
+              assert all(stat.S_IFMT(i.external_attr >> 16) in (0,stat.S_IFREG) for i in z.infolist())
+              raw='\n'.join(z.read(prefix+n).decode('utf-8') for n in expected)
+              assert not re.search(r'-----BEGIN [^-]*PRIVATE KEY|github_pat_[A-Za-z0-9_]{15,}|gh[psu]_[A-Za-z0-9]{15,}',raw)
+              z.extractall('/tmp/winecleaner')
+          print('EXACT_WINE_ARCHIVE_HASH_AND_CONTENTS_PASS')
+          PY
+          cd /tmp/winecleaner/devnet-wine-idle-cleaner-v0.1.1-QA-BLOCKED
+          sha256sum -c SHA256SUMS
+          python3 -m py_compile monitor.py test_monitor.py test_install.py
+          bash -n install.sh uninstall.sh
+      - name: Execute 33 real behaviour and disposable-user lifecycle tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd /tmp/winecleaner/devnet-wine-idle-cleaner-v0.1.1-QA-BLOCKED
+          python3 test_monitor.py > /tmp/wine-monitor-test.log 2>&1
+          sudo python3 test_install.py > /tmp/wine-install-test.log 2>&1
+          cat /tmp/wine-monitor-test.log /tmp/wine-install-test.log
+          grep -q 'Ran 29 tests' /tmp/wine-monitor-test.log
+          grep -q 'Ran 4 tests' /tmp/wine-install-test.log
+          grep -qx 'OK' /tmp/wine-monitor-test.log
+          grep -qx 'OK' /tmp/wine-install-test.log
+          echo 'GITHUB_EXACT_WINE_UNIT_AND_DISPOSABLE_INSTALL_PASS_LIMITED'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: devnet-wine-v011-unit-evidence
+          path: |
+            /tmp/wine-monitor-test.log
+            /tmp/wine-install-test.log
+          if-no-files-found: warn
+  independent-evidence-gate:
+    needs: exact-archive-unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: devnet-wine-v011-unit-evidence
+          path: evidence
+      - name: Independently check exact sha and test evidence (no release)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo 'f11cd9bd6e5ea0f4738ddf472be9ff8c79dcfa5c2fea85a843ca1a2d8bf8889b  qa/devnet-wine-idle-cleaner-v0.1.1/candidate.zip' | sha256sum -c -
+          grep -q 'Ran 29 tests' evidence/wine-monitor-test.log
+          grep -q 'Ran 4 tests' evidence/wine-install-test.log
+          grep -qx 'OK' evidence/wine-monitor-test.log
+          grep -qx 'OK' evidence/wine-install-test.log
+          echo 'GITHUB_UNIT_SCOPE=PASS_LIMITED'
+          echo 'NATIVE_CACHYOS_VM=NOT_TESTED'
+          echo 'REAL_FUSION_LIFECYCLE=NOT_TESTED'
+          echo 'RELEASE_APPROVED=false'
+          echo 'MASTER_QA=BLOCKED'
