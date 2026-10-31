@@ -93,3 +93,13 @@ REAL WORKSPACE FILE WRITE: PASS
 Command independently checked regular non-symlink file `/mnt/devnet-ai/projects/devnet-ai-safe-workspace/DEVNET_V017_FILE_QA.txt` exists and contains exactly `DEVNET_V017_REAL_WRITE_PASS` (newline-insensitive). Earlier precondition checked target did not already exist; no overwrite. This is **real sandbox write PASS on exact v0.1.7**. The message "No other files were modified" was **model assertion only**, not independently checked; do not count that as verified. Normal 9B run properly required no 30B delegation, unlike earlier separate required-delegation PASS.
 Remaining: fresh v0.1.7 mid-inference gaming guard stop/unload from actual in-use model and auto-game launch, integrated upgrade/rollback of real installed v0.1.2 with private-state integrity, full release Master QA and native non-Steam game detection gap.
 **MASTER_QA=BLOCKED; RELEASE_APPROVED=false.**
+
+## Exact v0.1.7 real No Man's Sky gaming start block — PASS, 31 October 2026
+
+User launched a real Steam/Proton No Man's Sky game and ran the SHA256-pinned exact v0.1.7 source extracted from the downloaded ZIP with a live `run "Reply with TEST"` command. Harness independently required both `gaming-on` and `stop-all` manual flags **absent**; expected exit code 2 and specific guard output. Raw user output:
+```
+BLOCKED: Gaming/stop-all is active
+
+V0.1.7 REAL GAME START BLOCK: PASS
+```
+Thus **real game detection and fail-closed refusal to start AI on exact v0.1.7 PASS**; no flag-based simulation and no installed launch change. This establishes startup gaming block but **not** mid-inference automatic game activation, process termination and 9B/30B model unload for v0.1.7, native non-Steam game coverage, or production integrated upgrade/rollback acceptance. No release permission. `MASTER_QA=BLOCKED; RELEASE_APPROVED=false.`
