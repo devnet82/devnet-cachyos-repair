@@ -95,3 +95,14 @@ After fully closing No Man's Sky on the user's live CachyOS system, user ran the
 - `REMAINING MATCHES: []`
 - Previously, while No Man's Sky was running, `gaming_now=True`, `NMS.exe` and Proton processes positively matched with manual override flags absent. Together these observations confirm **automatic gaming detector activity during the game and cessation after exit** for this particular real game: **PASS**.
 - This does **not** demonstrate the exact launcher reacting to an *actual* game launch mid-run, 30B resident-model unload after delegation, gaming coverage for native non-Steam games, or installation/upgrade/rollback. Keep the same candidate unmodified and **MASTER_QA=BLOCKED; RELEASE_APPROVED=false**.
+
+## Genuine user-host 9B / 30B resident model and idle unload observation — 31 October 2026
+
+User ran SHA-verified exact v0.1.6 candidate on CachyOS in a subprocess with `run --require-heavy`; a separate foreground monitor polled real `ollama ps` every second for up to 240 seconds while the run was active, then waited 40 seconds after successful exit.
+- Real OpenCode showed `✓ Explain mutex vs atomic counter Devnet-Heavy Agent`, then returned coordinator summary.
+- `DEVNET RESULT AUDIT: PASS (new tool failures: 0; completed delegations: 1 ; required: True )`.
+- `RUN EXIT: 0`.
+- `MODELS OBSERVED: ['qwen3-coder:30b', 'qwen3.5:9b']`.
+- `30B LOAD OBSERVED: True`.
+- `MODELS AFTER IDLE:` empty `ollama ps` table (no resident models), after 40 seconds.
+**PASS, genuine user-host runtime:** both models individually observed loaded, required 30B delegated and returned, and both absent after 40-second idle. Polling every second does not establish *absence of transient simultaneous residency*, exact RAM/VRAM peak, or which model ran on CPU/GPU. Do not claim strict zero overlap or zero total GPU use. Remaining open scope: actual game launch while inference active, real VR activity, non-Steam native-game detection gap, installation/upgrade/rollback and complete independent Master QA. Candidate and installed launcher unchanged; RELEASE_APPROVED=false, MASTER_QA=BLOCKED.
